@@ -22,10 +22,11 @@
 #define c6d28b7452ec699b_FORMATCONVERTER_H
 
 #include "ApertiumApplicator.hpp"
+#include "FSTApplicator.hpp"
+#include "JsonlApplicator.hpp"
 #include "MatxinApplicator.hpp"
 #include "NicelineApplicator.hpp"
 #include "PlaintextApplicator.hpp"
-#include "FSTApplicator.hpp"
 
 namespace CG3 {
 enum CG_FORMATS {
@@ -36,10 +37,11 @@ enum CG_FORMATS {
 	FMT_MATXIN,
 	FMT_FST,
 	FMT_PLAIN,
+	FMT_JSONL,
 	NUM_FORMATS,
 };
 
-class FormatConverter : public ApertiumApplicator, public NicelineApplicator, public PlaintextApplicator, public FSTApplicator, public MatxinApplicator {
+class FormatConverter : public ApertiumApplicator, public FSTApplicator, public JsonlApplicator, public MatxinApplicator, public NicelineApplicator, public PlaintextApplicator {
 public:
 	FormatConverter(std::ostream& ux_err);
 

@@ -143,6 +143,9 @@ int main(int argc, char* argv[]) {
 	else if (options[IN_PLAIN].doesOccur) {
 		fmt = FMT_PLAIN;
 	}
+	else if (options[IN_JSONL].doesOccur) {
+		fmt = FMT_JSONL;
+	}
 
 	if (options[IN_AUTO].doesOccur || fmt == FMT_INVALID) {
 		constexpr auto BUF_SIZE = 1000;
@@ -228,6 +231,14 @@ int main(int argc, char* argv[]) {
 				fmt = FMT_FST;
 				break;
 			}
+			uregex_close(rx);
+
+			rx = uregex_openC("^\\{", UREGEX_MULTILINE, 0, &status);
+			uregex_setText(rx, buffer.data(), SI32(buffer.size()), &status);
+			if (uregex_find(rx, -1, &status)) {
+				fmt = FMT_JSONL;
+				break;
+			}
 
 			fmt = FMT_PLAIN;
 			break;
@@ -286,6 +297,9 @@ int main(int argc, char* argv[]) {
 	}
 	else if (options[OUT_PLAIN].doesOccur) {
 		applicator.setOutputFormat(FMT_PLAIN);
+	}
+	else if (options[OUT_JSONL].doesOccur) {
+		applicator.setOutputFormat(FMT_JSONL);
 	}
 
 	if (options[UNICODE_TAGS].doesOccur) {
