@@ -87,6 +87,22 @@ int main(int argc, char* argv[]) {
 			}
 		}
 
+		fprintf(out, "\n\nJSONL format:\n");
+		fprintf(out, "=============\n");
+		fprintf(out, "Cohort keys:\n");
+		fprintf(out, "  w    wordform / token\n");
+		fprintf(out, "  sts  static tags\n");
+		fprintf(out, "  rs   readings\n");
+		fprintf(out, "  drs  deleted readings\n");
+		fprintf(out, "  ds   dependency self\n");
+		fprintf(out, "  dp   dependency parent\n");
+		fprintf(out, "  z    text suffix (whitespace, etc.)\n");
+		fprintf(out, "-------------\n");
+		fprintf(out, "Reading keys\n");
+		fprintf(out, "  l    lemma / base form\n");
+		fprintf(out, "  ts   tags\n");
+		fprintf(out, "  s    subreading\n");
+
 		return argc < 0 ? U_ILLEGAL_ARGUMENT_ERROR : U_ZERO_ERROR;
 	}
 

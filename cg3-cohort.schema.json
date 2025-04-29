@@ -4,7 +4,7 @@
   "type": "object",
   "title": "CG3 Cohort",
   "description": "Schema for each line of the JSONL CG3 stream representing a cohort",
-  "required": ["t"],
+  "required": ["w"],
   "properties": {
     "w": {
       "type": "string",
