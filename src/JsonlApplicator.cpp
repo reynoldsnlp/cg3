@@ -73,6 +73,79 @@ std::string ustring_to_utf8(const UString& ustr) {
 	return utf8_str;
 }
 
+// Helper function to parse a single reading (and its potential subreadings) from JSON
+Reading* JsonlApplicator::parseJsonReading(const json::object& reading_obj, Cohort* parentCohort, Reading* parentReading /*= nullptr*/) {
+	Reading* cReading = alloc_reading(parentCohort);
+	if (parentReading) {
+		parentReading->next = cReading; // Link subreading
+	}
+	addTagToReading(*cReading, parentCohort->wordform); // Add wordform tag by default
+
+	// Parse baseform ("l")
+	if (reading_obj.contains("l")) {
+		UString base_str = json_to_ustring(reading_obj.at("l"));
+		if (!base_str.empty()) {
+			UString base_tag;
+			base_tag += '"';
+			base_tag += base_str;
+			base_tag += '"';
+			addTagToReading(*cReading, addTag(base_tag));
+		} else {
+			u_fprintf(ux_stderr, "Warning: Empty 'l' (baseform) in reading on line %u.\n", numLines);
+		}
+	} else {
+		u_fprintf(ux_stderr, "Warning: Reading missing 'l' (baseform) on line %u.\n", numLines);
+	}
+
+	// Parse tags ("ts")
+	if (reading_obj.contains("ts") && reading_obj.at("ts").is_array()) {
+		const json::array& tags_arr = reading_obj.at("ts").get_array();
+		TagList mappings;
+		for (const auto& tag_val : tags_arr) {
+			UString tag_str = json_to_ustring(tag_val);
+			if (!tag_str.empty()) {
+				Tag* tag = addTag(tag_str);
+				if (tag->type & T_MAPPING || (!tag_str.empty() && tag_str[0] == grammar->mapping_prefix)) {
+					mappings.push_back(tag);
+				} else {
+					addTagToReading(*cReading, tag);
+				}
+			}
+		}
+		if (!mappings.empty()) {
+			splitMappings(mappings, *parentCohort, *cReading, true);
+		}
+	}
+
+	// Parse subreadings ("s") recursively
+	if (reading_obj.contains("s") && reading_obj.at("s").is_array()) {
+		const json::array& sub_readings_arr = reading_obj.at("s").get_array();
+		Reading* currentSubReading = cReading; // Start linking from the parent reading
+		for (const auto& sub_reading_val : sub_readings_arr) {
+			if (sub_reading_val.is_object()) {
+				// Recursively parse the subreading and link it
+				currentSubReading = parseJsonReading(sub_reading_val.get_object(), parentCohort, currentSubReading);
+				if (!currentSubReading) { // Handle potential error from recursive call
+					u_fprintf(ux_stderr, "Error: Failed to parse subreading on line %u.\n", numLines);
+					// Decide how to proceed: skip this subreading, stop parsing this branch, etc.
+					// For now, we just break the subreading chain here.
+					break;
+				}
+			} else {
+				u_fprintf(ux_stderr, "Warning: Non-object found in 's' (sub_readings) array on line %u. Skipping.\n", numLines);
+			}
+		}
+	}
+
+	// Ensure baseform exists
+	if (!cReading->baseform) {
+		cReading->baseform = parentCohort->wordform->hash;
+		u_fprintf(ux_stderr, "Warning: Reading on line %u ended up with no baseform. Using wordform.\n", numLines);
+	}
+
+	return cReading;
+}
+
 void JsonlApplicator::parseJsonCohort(const json::object& obj, SingleWindow* cSWindow, Cohort*& cCohort) {
 	cCohort = alloc_cohort(cSWindow);
 	cCohort->global_number = gWindow->cohort_counter++;
@@ -95,6 +168,26 @@ void JsonlApplicator::parseJsonCohort(const json::object& obj, SingleWindow* cSW
 		cCohort->text = json_to_ustring(obj.at("z"));
 	}
 
+	// handle static tags ("sts")
+	if (obj.contains("sts") && obj.at("sts").is_array()) {
+		// Ensure wread exists if we have static tags
+		if (!cCohort->wread) {
+			cCohort->wread = alloc_reading(cCohort);
+			// Add wordform tag to wread as well
+			addTagToReading(*cCohort->wread, cCohort->wordform);
+			// Set baseform for wread, typically the wordform itself
+			cCohort->wread->baseform = cCohort->wordform->hash;
+		}
+		for (const auto& tag_val : obj.at("sts").get_array()) {
+			UString tag_str = json_to_ustring(tag_val);
+			if (!tag_str.empty()) {
+				Tag* tag = addTag(tag_str);
+				// Add the static tag hash to the wread's tag list
+				cCohort->wread->tags_list.push_back(tag->hash);
+			}
+		}
+	}
+
 	if (obj.contains("rs") && obj.at("rs").is_array()) {
 		const json::array& readings_arr = obj.at("rs").get_array();
 		for (const auto& reading_val : readings_arr) {
@@ -103,54 +196,14 @@ void JsonlApplicator::parseJsonCohort(const json::object& obj, SingleWindow* cSW
 				continue;
 			}
 			const json::object& reading_obj = reading_val.get_object();
-			Reading* cReading = alloc_reading(cCohort);
-			addTagToReading(*cReading, cCohort->wordform);
-
-			if (reading_obj.contains("l")) {
-				UString base_str = json_to_ustring(reading_obj.at("l"));
-				if (!base_str.empty()) {
-					UString base_tag;
-					base_tag += '"';
-					base_tag += base_str;
-					base_tag += '"';
-					addTagToReading(*cReading, addTag(base_tag));
-				} else {
-					u_fprintf(ux_stderr, "Warning: Empty 'l' (baseform) in reading on line %u.\n", numLines);
-				}
+			// Use the new helper function to parse the reading and its subreadings
+			Reading* cReading = parseJsonReading(reading_obj, cCohort);
+			if (cReading) {
+				cCohort->appendReading(cReading);
+				++numReadings; // Increment only if parsing succeeded
 			} else {
-				u_fprintf(ux_stderr, "Warning: Reading missing 'l' (baseform) on line %u.\n", numLines);
+				u_fprintf(ux_stderr, "Error: Failed to parse main reading on line %u.\n", numLines);
 			}
-
-			if (reading_obj.contains("ts") && reading_obj.at("ts").is_array()) {
-				const json::array& tags_arr = reading_obj.at("ts").get_array();
-				TagList mappings;
-				for (const auto& tag_val : tags_arr) {
-					UString tag_str = json_to_ustring(tag_val);
-					if (!tag_str.empty()) {
-						Tag* tag = addTag(tag_str);
-						if (tag->type & T_MAPPING || (!tag_str.empty() && tag_str[0] == grammar->mapping_prefix)) {
-							mappings.push_back(tag);
-						} else {
-							addTagToReading(*cReading, tag);
-						}
-					}
-				}
-				if (!mappings.empty()) {
-					splitMappings(mappings, *cCohort, *cReading, true);
-				}
-			}
-
-			if (reading_obj.contains("s") && reading_obj.at("s").is_array()) {
-				u_fprintf(ux_stderr, "Warning: Parsing of 's' (sub_readings) from JSONL input is not fully implemented yet (line %u).\n", numLines);
-			}
-
-			if (!cReading->baseform) {
-				cReading->baseform = cCohort->wordform->hash;
-				u_fprintf(ux_stderr, "Warning: Reading on line %u ended up with no baseform. Using wordform.\n", numLines);
-			}
-
-			cCohort->appendReading(cReading);
-			++numReadings;
 		}
 	}
 
@@ -158,6 +211,29 @@ void JsonlApplicator::parseJsonCohort(const json::object& obj, SingleWindow* cSW
 		initEmptyCohort(*cCohort);
 	}
 	insert_if_exists(cCohort->possible_sets, grammar->sets_any);
+
+	// restore dependency fields ("ds","dp")
+	if (obj.contains("ds")) {
+		cCohort->dep_self = obj.at("ds").to_number<uint32_t>();
+	}
+	if (obj.contains("dp")) {
+		cCohort->dep_parent = obj.at("dp").to_number<uint32_t>();
+	}
+
+	// parse deleted readings ("drs")
+	if (obj.contains("drs") && obj.at("drs").is_array()) {
+		for (const auto& dr_val : obj.at("drs").get_array()) {
+			if (!dr_val.is_object()) continue;
+			const auto& dr_obj = dr_val.get_object();
+			// Use the helper function for deleted readings too
+			Reading* delR = parseJsonReading(dr_obj, cCohort);
+			if (delR) {
+				cCohort->deleted.push_back(delR);
+			} else {
+				u_fprintf(ux_stderr, "Error: Failed to parse deleted reading on line %u.\n", numLines);
+			}
+		}
+	}
 }
 
 // Add the missing definition for runGrammarOnText
@@ -421,11 +497,20 @@ void JsonlApplicator::printCohort(Cohort* cohort, std::ostream& output, bool pro
 	// Static Tags ("sts") - Optional, from cohort->wread
 	if (cohort->wread && !cohort->wread->tags_list.empty()) {
 		json::array static_tags_json;
+		uint32SortedVector unique_sts; // Use unique set for static tags too
 		for (const auto& tag_hash : cohort->wread->tags_list) {
-			// Skip the wordform itself
+			// Skip the wordform itself if it was added to wread
 			if (cohort->wordform && tag_hash == cohort->wordform->hash) {
 				continue;
 			}
+			// Ensure uniqueness if required
+			if (unique_tags) {
+				if (unique_sts.find(tag_hash) != unique_sts.end()) {
+					continue;
+				}
+				unique_sts.insert(tag_hash);
+			}
+
 			auto it = grammar->single_tags.find(tag_hash);
 			if (it != grammar->single_tags.end()) {
 				const Tag* tag_ptr = it->second;
