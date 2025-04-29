@@ -38,7 +38,7 @@ protected:
 
 private:
 	void parseJsonCohort(const boost::json::object& obj, SingleWindow* cSWindow, Cohort*& cCohort);
-	Reading* parseJsonReading(const boost::json::object& reading_obj, Cohort* parentCohort, Reading* parentReading = nullptr);
+	Reading* parseJsonReading(const boost::json::object& reading_obj, Cohort* parentCohort);
 	void buildJsonReading(const Reading* reading, boost::json::object& reading_json);
 	void buildJsonTags(const Reading* reading, boost::json::array& tags_json);
 	boost::json::value cohortToJson(const Cohort* cohort, bool profiling);

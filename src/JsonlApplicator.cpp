@@ -1,7 +1,6 @@
 /*
 * Copyright (C) 2024, GrammarSoft ApS
 * Developed by Tino Didriksen <mail@tinodidriksen.com>
-* Based on contributions from GitHub Copilot
 *
 * This program is free software: you can redistribute it and/or modify
 * it under the terms of the GNU General Public License as published by
@@ -74,11 +73,8 @@ std::string ustring_to_utf8(const UString& ustr) {
 }
 
 // Helper function to parse a single reading (and its potential subreadings) from JSON
-Reading* JsonlApplicator::parseJsonReading(const json::object& reading_obj, Cohort* parentCohort, Reading* parentReading /*= nullptr*/) {
+Reading* JsonlApplicator::parseJsonReading(const json::object& reading_obj, Cohort* parentCohort) {
 	Reading* cReading = alloc_reading(parentCohort);
-	if (parentReading) {
-		parentReading->next = cReading; // Link subreading
-	}
 	addTagToReading(*cReading, parentCohort->wordform); // Add wordform tag by default
 
 	// Parse baseform ("l")
@@ -117,23 +113,18 @@ Reading* JsonlApplicator::parseJsonReading(const json::object& reading_obj, Coho
 		}
 	}
 
-	// Parse subreadings ("s") recursively
-	if (reading_obj.contains("s") && reading_obj.at("s").is_array()) {
-		const json::array& sub_readings_arr = reading_obj.at("s").get_array();
-		Reading* currentSubReading = cReading; // Start linking from the parent reading
-		for (const auto& sub_reading_val : sub_readings_arr) {
-			if (sub_reading_val.is_object()) {
-				// Recursively parse the subreading and link it
-				currentSubReading = parseJsonReading(sub_reading_val.get_object(), parentCohort, currentSubReading);
-				if (!currentSubReading) { // Handle potential error from recursive call
-					u_fprintf(ux_stderr, "Error: Failed to parse subreading on line %u.\n", numLines);
-					// Decide how to proceed: skip this subreading, stop parsing this branch, etc.
-					// For now, we just break the subreading chain here.
-					break;
-				}
+	// Parse subreading ("s") recursively
+	if (reading_obj.contains("s")) {
+		const json::value& sub_reading_val = reading_obj.at("s");
+		if (sub_reading_val.is_object()) {
+			Reading* subReading = parseJsonReading(sub_reading_val.get_object(), parentCohort);
+			if (subReading) {
+				cReading->next = subReading; // Link the parsed subreading
 			} else {
-				u_fprintf(ux_stderr, "Warning: Non-object found in 's' (sub_readings) array on line %u. Skipping.\n", numLines);
+				u_fprintf(ux_stderr, "Error: Failed to parse subreading object on line %u.\n", numLines);
 			}
+		} else {
+			u_fprintf(ux_stderr, "Warning: Value for 's' (sub_reading) is not an object on line %u. Skipping.\n", numLines);
 		}
 	}
 
@@ -170,19 +161,15 @@ void JsonlApplicator::parseJsonCohort(const json::object& obj, SingleWindow* cSW
 
 	// handle static tags ("sts")
 	if (obj.contains("sts") && obj.at("sts").is_array()) {
-		// Ensure wread exists if we have static tags
 		if (!cCohort->wread) {
 			cCohort->wread = alloc_reading(cCohort);
-			// Add wordform tag to wread as well
 			addTagToReading(*cCohort->wread, cCohort->wordform);
-			// Set baseform for wread, typically the wordform itself
 			cCohort->wread->baseform = cCohort->wordform->hash;
 		}
 		for (const auto& tag_val : obj.at("sts").get_array()) {
 			UString tag_str = json_to_ustring(tag_val);
 			if (!tag_str.empty()) {
 				Tag* tag = addTag(tag_str);
-				// Add the static tag hash to the wread's tag list
 				cCohort->wread->tags_list.push_back(tag->hash);
 			}
 		}
@@ -196,7 +183,6 @@ void JsonlApplicator::parseJsonCohort(const json::object& obj, SingleWindow* cSW
 				continue;
 			}
 			const json::object& reading_obj = reading_val.get_object();
-			// Use the new helper function to parse the reading and its subreadings
 			Reading* cReading = parseJsonReading(reading_obj, cCohort);
 			if (cReading) {
 				cCohort->appendReading(cReading);
@@ -212,7 +198,6 @@ void JsonlApplicator::parseJsonCohort(const json::object& obj, SingleWindow* cSW
 	}
 	insert_if_exists(cCohort->possible_sets, grammar->sets_any);
 
-	// restore dependency fields ("ds","dp")
 	if (obj.contains("ds")) {
 		cCohort->dep_self = obj.at("ds").to_number<uint32_t>();
 	}
@@ -225,7 +210,6 @@ void JsonlApplicator::parseJsonCohort(const json::object& obj, SingleWindow* cSW
 		for (const auto& dr_val : obj.at("drs").get_array()) {
 			if (!dr_val.is_object()) continue;
 			const auto& dr_obj = dr_val.get_object();
-			// Use the helper function for deleted readings too
 			Reading* delR = parseJsonReading(dr_obj, cCohort);
 			if (delR) {
 				cCohort->deleted.push_back(delR);
@@ -236,7 +220,6 @@ void JsonlApplicator::parseJsonCohort(const json::object& obj, SingleWindow* cSW
 	}
 }
 
-// Add the missing definition for runGrammarOnText
 void JsonlApplicator::runGrammarOnText(std::istream& input, std::ostream& output) {
 	ux_stdin = &input;
 	ux_stdout = &output;
@@ -292,11 +275,11 @@ void JsonlApplicator::runGrammarOnText(std::istream& input, std::ostream& output
 		// Parse JSON line
 		json::value jv;
 		json::error_code ec;
-		jv = json::parse(line_str, ec); // Correct call to json::parse
+		jv = json::parse(line_str, ec);
 
 		if (ec) {
 			u_fprintf(ux_stderr, "Warning: Failed to parse JSON on line %u: %s. Skipping line.\n", numLines, ec.message().c_str());
-			// Output the invalid line as-is? Or just skip? Skipping for now.
+			// TODO Output the invalid line as-is? Or just skip? Skipping for now.
 			// u_fprintf(output, "%s\n", line_str.c_str());
 			continue;
 		}
@@ -310,7 +293,6 @@ void JsonlApplicator::runGrammarOnText(std::istream& input, std::ostream& output
 		const json::object& obj = jv.get_object();
 
 		// --- Window Management ---
-		// Create a new window for each JSON line/cohort? Or group them?
 		// Assuming each JSON line represents one cohort and we group them into windows based on limits.
 		if (!cSWindow) {
 			cSWindow = gWindow->allocAppendSingleWindow();
@@ -321,7 +303,7 @@ void JsonlApplicator::runGrammarOnText(std::istream& input, std::ostream& output
 		// Parse the JSON object into a Cohort
 		parseJsonCohort(obj, cSWindow, cCohort); // cCohort is updated by reference
 
-		if (!cCohort) { // Should not happen if parseJsonCohort succeeds
+		if (!cCohort) {
 		    u_fprintf(ux_stderr, "Error: Failed to create cohort from JSON on line %u.\n", numLines);
 		    continue;
 		}
@@ -457,25 +439,18 @@ void JsonlApplicator::buildJsonReading(const Reading* reading, json::object& rea
 	buildJsonTags(reading, tags_json);
 	reading_json["ts"] = std::move(tags_json);
 
+	// If there's a next reading (subreading), build its JSON object and assign to "s"
 	if (reading->next) {
-		json::array sub_readings_json;
-		const Reading* sub = reading->next;
-		while (sub) {
-			json::object sub_reading_obj;
-			buildJsonReading(sub, sub_reading_obj);
-			sub_readings_json.emplace_back(std::move(sub_reading_obj));
-			sub = sub->next;
-		}
-		if (!sub_readings_json.empty()) {
-			reading_json["s"] = std::move(sub_readings_json);
-		}
+		json::object sub_reading_obj;
+		buildJsonReading(reading->next, sub_reading_obj); // Recursively build the next reading
+		reading_json["s"] = std::move(sub_reading_obj);
 	}
 }
 
 void JsonlApplicator::printCohort(Cohort* cohort, std::ostream& output, bool profiling) {
 	if (cohort->local_number == 0 || (cohort->type & CT_REMOVED)) {
 		// Removed cohorts are not printed in JSONL format.
-		// Consider how to handle cohort->text if it contains relevant whitespace.
+		// TODO Consider how to handle cohort->text if it contains relevant whitespace.
 		return;
 	}
 
@@ -497,7 +472,7 @@ void JsonlApplicator::printCohort(Cohort* cohort, std::ostream& output, bool pro
 	// Static Tags ("sts") - Optional, from cohort->wread
 	if (cohort->wread && !cohort->wread->tags_list.empty()) {
 		json::array static_tags_json;
-		uint32SortedVector unique_sts; // Use unique set for static tags too
+		uint32SortedVector unique_sts;
 		for (const auto& tag_hash : cohort->wread->tags_list) {
 			// Skip the wordform itself if it was added to wread
 			if (cohort->wordform && tag_hash == cohort->wordform->hash) {
@@ -524,7 +499,7 @@ void JsonlApplicator::printCohort(Cohort* cohort, std::ostream& output, bool pro
 		}
 	}
 
-	// Text suffix ("z") - Optional, trim final newline
+	// Text suffix ("z") - Optional
 	if (!cohort->text.empty()) {
 		UString z_text = cohort->text;
 		// Remove trailing '\n'
@@ -555,7 +530,7 @@ void JsonlApplicator::printCohort(Cohort* cohort, std::ostream& output, bool pro
 	std::sort(readings_to_print->begin(), readings_to_print->end(), Reading::cmp_number);
 
 	for (const auto& reading : *readings_to_print) {
-		if (reading->noprint) { // Skip readings marked as noprint
+		if (reading->noprint) {
 			continue;
 		}
 		json::object reading_json;
@@ -569,19 +544,18 @@ void JsonlApplicator::printCohort(Cohort* cohort, std::ostream& output, bool pro
 			// break;
 		}
 	}
-	// Only add "rs" if there are readings to print
+	// Readings ("rs")
 	if (!readings_json.empty()) {
 		cohort_json["rs"] = std::move(readings_json);
 	}
 
 	// Deleted Readings ("drs") - Optional
-	// Often populated when trace is enabled or during specific rule applications.
 	if (!cohort->deleted.empty()) {
 		json::array deleted_readings_json;
 		// Sort deleted readings for consistent output
 		std::sort(cohort->deleted.begin(), cohort->deleted.end(), Reading::cmp_number);
 		for (const auto& reading : cohort->deleted) {
-			// Assuming deleted readings should always be included if present, regardless of noprint flag?
+			// TODO Assuming deleted readings should always be included if present, regardless of noprint flag?
 			json::object reading_json;
 			buildJsonReading(reading, reading_json);
 			deleted_readings_json.emplace_back(std::move(reading_json));
