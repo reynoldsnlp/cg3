@@ -21,7 +21,7 @@
 #define JSONLAPPLICATOR_HPP
 
 #include "GrammarApplicator.hpp"
-#include <boost/json.hpp>
+#include "rapidjson/document.h"
 
 namespace CG3 {
 
@@ -37,12 +37,10 @@ protected:
 	void printSingleWindow(SingleWindow* window, std::ostream& output, bool profiling = false) override;
 
 private:
-	void parseJsonCohort(const boost::json::object& obj, SingleWindow* cSWindow, Cohort*& cCohort);
-	Reading* parseJsonReading(const boost::json::object& reading_obj, Cohort* parentCohort);
-	void buildJsonReading(const Reading* reading, boost::json::object& reading_json);
-	void buildJsonTags(const Reading* reading, boost::json::array& tags_json);
-	boost::json::value cohortToJson(const Cohort* cohort, bool profiling);
-	boost::json::value readingToJson(const Reading* reading);
+	void parseJsonCohort(const rapidjson::Value& obj, SingleWindow* cSWindow, Cohort*& cCohort);
+	Reading* parseJsonReading(const rapidjson::Value& reading_obj, Cohort* parentCohort);
+	void buildJsonReading(const Reading* reading, rapidjson::Value& reading_json, rapidjson::Document::AllocatorType& allocator);
+	void buildJsonTags(const Reading* reading, rapidjson::Value& tags_json, rapidjson::Document::AllocatorType& allocator);
 };
 
 } // namespace CG3
