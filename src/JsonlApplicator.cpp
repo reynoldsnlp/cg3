@@ -422,10 +422,14 @@ void JsonlApplicator::printCohort(Cohort* cohort, std::ostream& output, bool pro
 	if (cohort->wread && !cohort->wread->tags_list.empty()) {
 		json::array static_tags_json;
 		for (const auto& tag_hash : cohort->wread->tags_list) {
+			// Skip the wordform itself
+			if (cohort->wordform && tag_hash == cohort->wordform->hash) {
+				continue;
+			}
 			auto it = grammar->single_tags.find(tag_hash);
-			if (it != grammar->single_tags.end()) { // Ensure tag hash exists
+			if (it != grammar->single_tags.end()) {
 				const Tag* tag_ptr = it->second;
-				if (tag_ptr) { // Ensure tag pointer is valid
+				if (tag_ptr) {
 					static_tags_json.emplace_back(ustring_to_utf8(tag_ptr->tag));
 				}
 			}
@@ -435,27 +439,28 @@ void JsonlApplicator::printCohort(Cohort* cohort, std::ostream& output, bool pro
 		}
 	}
 
-	// Text suffix ("z") - Optional
+	// Text suffix ("z") - Optional, trim final newline
 	if (!cohort->text.empty()) {
-		cohort_json["z"] = ustring_to_utf8(cohort->text);
+		UString z_text = cohort->text;
+		// Remove trailing '\n'
+		if (!z_text.empty() && z_text.back() == u'\n') {
+			z_text.pop_back();
+		}
+		cohort_json["z"] = ustring_to_utf8(z_text);
 	}
 
-	// Dependency Relation ("ds") - Optional
-	if (cohort->dep_self != 0) { // Check if dep_self hash is set
-		auto it = grammar->single_tags.find(cohort->dep_self);
-		if (it != grammar->single_tags.end() && it->second) {
-			cohort_json["ds"] = ustring_to_utf8(it->second->tag);
+	// Dependency relations: only if dependencies enabled and cohort not removed
+	if (has_dep && !(cohort->type & CT_REMOVED)) {
+		// ensure self‐ID
+		if (cohort->dep_self == 0) {
+			cohort_json["ds"] = cohort->global_number;
+		} else {
+			cohort_json["ds"] = cohort->dep_self;
+			if (cohort->dep_parent != DEP_NO_PARENT) {
+				cohort_json["dp"] = cohort->dep_parent;
+			}
 		}
 	}
-
-	// Parent Dependency Relation ("dp") - Optional
-	if (cohort->dep_parent != 0) { // Check if dep_parent hash is set
-		auto it = grammar->single_tags.find(cohort->dep_parent);
-		if (it != grammar->single_tags.end() && it->second) {
-			cohort_json["dp"] = ustring_to_utf8(it->second->tag);
-		}
-	}
-
 
 	// Readings ("rs")
 	json::array readings_json;
@@ -500,7 +505,6 @@ void JsonlApplicator::printCohort(Cohort* cohort, std::ostream& output, bool pro
 			cohort_json["drs"] = std::move(deleted_readings_json);
 		}
 	}
-
 
 	// Serialize and print the complete cohort JSON object
 	std::string json_line = json::serialize(cohort_json);
