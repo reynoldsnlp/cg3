@@ -50,8 +50,12 @@ JsonlApplicator::~JsonlApplicator()
 // Helper to safely get string from JSON, converting to UString
 UString json_to_ustring(const json::Value& val) {
 	if (val.IsString()) {
-		std::string s = val.GetString();
-		return UString(s.begin(), s.end());
+		const char* utf8_str = val.GetString();
+		size_t len = val.GetStringLength();
+		// Use ICU's fromUTF8 to correctly handle UTF-8 encoding
+		icu::UnicodeString unicode_str = icu::UnicodeString::fromUTF8(icu::StringPiece(utf8_str, len));
+		UString result(unicode_str.getBuffer(), unicode_str.length());
+		return result;
 	}
 	return UString();
 }

@@ -4,7 +4,10 @@
   "type": "object",
   "title": "CG3 Cohort",
   "description": "Schema for each line of the JSONL CG3 stream representing a cohort",
-  "required": ["w"],
+  "anyOf": [
+    {"required": ["w"]},
+    {"required": ["z"]}
+  ],
   "properties": {
     "w": {
       "type": "string",
@@ -32,11 +35,11 @@
       }
     },
     "ds": {
-      "type": "string",
+      "type": "integer",
       "description": "Dependency relation for the cohort itself"
     },
     "dp": {
-      "type": "string",
+      "type": "integer",
       "description": "Dependency relation for the parent of the cohort"
     },
     "z": {
@@ -48,7 +51,7 @@
     "reading": {
       "type": "object",
       "description": "A reading in the cohort",
-      "required": ["l", "ts"],
+      "required": ["l"],
       "properties": {
         "l": {
           "type": "string",
