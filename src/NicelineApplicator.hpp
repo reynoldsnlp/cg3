@@ -25,6 +25,7 @@
 
 namespace CG3 {
 
+// Inherit virtually
 class NicelineApplicator : public virtual GrammarApplicator {
 private:
 	bool did_warn_statictags = false;

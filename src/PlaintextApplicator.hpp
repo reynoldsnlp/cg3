@@ -25,16 +25,21 @@
 
 namespace CG3 {
 
+// Inherit virtually
 class PlaintextApplicator : public virtual GrammarApplicator {
 public:
 	bool add_tags = false;
 
 	PlaintextApplicator(std::ostream& ux_err);
-	void runGrammarOnText(std::istream& input, std::ostream& output);
 
-	void printCohort(Cohort* cohort, std::ostream& output, bool profiling = false);
-	void printSingleWindow(SingleWindow* window, std::ostream& output, bool profiling = false);
+	void runGrammarOnText(std::istream& input, std::ostream& output) override;
+
+protected:
+	void printReading(const Reading* reading, std::ostream& output, size_t sub = 0) override;
+	void printCohort(Cohort* cohort, std::ostream& output, bool profiling = false) override;
+	void printSingleWindow(SingleWindow* window, std::ostream& output, bool profiling = false) override;
 };
-}
 
-#endif
+} // namespace CG3
+
+#endif // c6d28b7452ec699b_PLAINTEXTAPPLICATOR_HPP

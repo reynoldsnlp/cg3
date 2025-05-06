@@ -319,6 +319,17 @@ Tag* GrammarApplicator::addTag(const UString& txt, bool vstr) {
 	return addTag(txt.data(), vstr);
 }
 
+void GrammarApplicator::printStreamCommand(const UString& cmd, std::ostream& output) {
+	u_fprintf(output, "%S\n", cmd.data());
+}
+
+void GrammarApplicator::printPlainTextLine(const UString& line, std::ostream& output, bool add_newline) {
+	u_fprintf(output, "%S", line.data());
+	if (add_newline) {
+		u_fputc('\n', output);
+	}
+}
+
 void GrammarApplicator::printTrace(std::ostream& output, uint32_t hit_by) {
 	if (hit_by < grammar->rule_by_number.size()) {
 		const Rule* r = grammar->rule_by_number[hit_by];
@@ -544,24 +555,33 @@ void GrammarApplicator::printSingleWindow(SingleWindow* window, std::ostream& ou
 	for (auto var : window->variables_output) {
 		Tag* key = grammar->single_tags[var];
 		auto iter = window->variables_set.find(var);
+		UString cmd_buf;
 		if (iter != window->variables_set.end()) {
 			if (iter->second != grammar->tag_any) {
 				Tag* value = grammar->single_tags[iter->second];
-				u_fprintf(output, "%S%S=%S>\n", STR_CMD_SETVAR.data(), key->tag.data(), value->tag.data());
+				cmd_buf.append(STR_CMD_SETVAR).append(key->tag).append(u"=").append(value->tag).append(u">");
 			}
 			else {
-				u_fprintf(output, "%S%S>\n", STR_CMD_SETVAR.data(), key->tag.data());
+				cmd_buf.append(STR_CMD_SETVAR).append(key->tag).append(u">");
 			}
 		}
 		else {
-			u_fprintf(output, "%S%S>\n", STR_CMD_REMVAR.data(), key->tag.data());
+			cmd_buf.append(STR_CMD_REMVAR).append(key->tag).append(u">");
 		}
+		printStreamCommand(cmd_buf, output);
 	}
 
 	if (!window->text.empty() && window->text.find_first_not_of(ws) != UString::npos) {
-		u_fprintf(output, "%S", window->text.data());
-		if (!ISNL(window->text.back())) {
-			u_fputc('\n', output);
+		UString line_buf;
+		for (UChar c : window->text) {
+			line_buf += c;
+			if (ISNL(c)) {
+				printPlainTextLine(line_buf, output, false);
+				line_buf.clear();
+			}
+		}
+		if (!line_buf.empty()) {
+			printPlainTextLine(line_buf, output, false);
 		}
 	}
 
@@ -570,17 +590,24 @@ void GrammarApplicator::printSingleWindow(SingleWindow* window, std::ostream& ou
 	}
 
 	if (!window->text_post.empty() && window->text_post.find_first_not_of(ws) != UString::npos) {
-		u_fprintf(output, "%S", window->text_post.data());
-		if (!ISNL(window->text_post.back())) {
-			u_fputc('\n', output);
+		UString line_buf;
+		for (UChar c : window->text_post) {
+			line_buf += c;
+			if (ISNL(c)) {
+				printPlainTextLine(line_buf, output, false);
+				line_buf.clear();
+			}
+		}
+		if (!line_buf.empty()) {
+			printPlainTextLine(line_buf, output, false);
 		}
 	}
 
 	if (add_spacing) {
-		u_fputc('\n', output);
+		printPlainTextLine(UString(), output);
 	}
 	if (window->flush_after) {
-		u_fprintf(output, "%S\n", STR_CMD_FLUSH.data());
+		printStreamCommand(UString(STR_CMD_FLUSH), output);
 	}
 	u_fflush(output);
 }

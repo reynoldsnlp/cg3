@@ -76,6 +76,40 @@ void FormatConverter::runGrammarOnText(std::istream& input, std::ostream& output
 	}
 }
 
+void FormatConverter::printReading(const Reading* reading, std::ostream& output, size_t sub) {
+	switch (outformat) {
+	case FMT_CG: {
+		GrammarApplicator::printReading(reading, output, sub);
+		break;
+	}
+	case FMT_APERTIUM: {
+		 // Call the override that takes const Reading*
+		ApertiumApplicator::printReading(reading, output);
+		break;
+	}
+	case FMT_FST: {
+		FSTApplicator::printReading(reading, output);
+		break;
+	}
+	case FMT_NICELINE: {
+		NicelineApplicator::printReading(reading, output);
+		break;
+	}
+	case FMT_PLAIN: {
+		PlaintextApplicator::printReading(reading, output, sub);
+		break;
+	}
+	case FMT_JSONL: {
+		JsonlApplicator::printReading(reading, output, sub);
+		break;
+	}
+	// Matxin format likely uses the default or needs its own case
+	case FMT_MATXIN:
+	default:
+		GrammarApplicator::printReading(reading, output, sub);
+	}
+}
+
 void FormatConverter::printCohort(Cohort* cohort, std::ostream& output, bool profiling) {
 	switch (outformat) {
 	case FMT_CG: {
@@ -103,7 +137,7 @@ void FormatConverter::printCohort(Cohort* cohort, std::ostream& output, bool pro
 		break;
 	}
 	default:
-		CG3Quit();
+		GrammarApplicator::printCohort(cohort, output, profiling);
 	}
 }
 
@@ -134,7 +168,44 @@ void FormatConverter::printSingleWindow(SingleWindow* window, std::ostream& outp
 		break;
 	}
 	default:
-		CG3Quit();
+		GrammarApplicator::printSingleWindow(window, output, profiling);
 	}
 }
+
+void FormatConverter::printStreamCommand(const UString& cmd, std::ostream& output) {
+	switch (outformat) {
+	case FMT_JSONL: {
+		JsonlApplicator::printStreamCommand(cmd, output);
+		break;
+	}
+	case FMT_CG:
+	case FMT_APERTIUM:
+	case FMT_FST:
+	case FMT_NICELINE:
+	case FMT_PLAIN:
+	default: {
+		GrammarApplicator::printStreamCommand(cmd, output);
+		break;
+	}
+	}
 }
+
+void FormatConverter::printPlainTextLine(const UString& line, std::ostream& output, bool add_newline) {
+	switch (outformat) {
+	case FMT_JSONL: {
+		JsonlApplicator::printPlainTextLine(line, output, add_newline);
+		break;
+	}
+	case FMT_CG:
+	case FMT_APERTIUM:
+	case FMT_FST:
+	case FMT_NICELINE:
+	case FMT_PLAIN:
+	default: {
+		GrammarApplicator::printPlainTextLine(line, output, add_newline);
+		break;
+	}
+	}
+}
+
+} // namespace CG3

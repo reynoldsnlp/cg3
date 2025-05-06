@@ -24,6 +24,8 @@
 #include "GrammarApplicator.hpp"
 
 namespace CG3 {
+
+// Inherit virtually
 class MatxinApplicator : public virtual GrammarApplicator {
 public:
 	MatxinApplicator(std::ostream& ux_err);

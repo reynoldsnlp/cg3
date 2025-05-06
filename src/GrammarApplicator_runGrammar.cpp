@@ -446,49 +446,19 @@ void GrammarApplicator::runGrammarOnText(std::istream& input, std::ostream& outp
 			}
 		istext:
 			if (cleaned[0]) {
+				bool is_cmd = false;
 				if (&cleaned[0] == STR_CMD_FLUSH) {
 					if (verbosity_level > 0) {
 						u_fprintf(ux_stderr, "Info: FLUSH encountered on line %u. Flushing...\n", numLines);
 					}
+					is_cmd = true;
 
 					auto backSWindow = gWindow->back();
 					if (backSWindow) {
 						backSWindow->flush_after = true;
 					}
-
-					if (cCohort && cSWindow) {
-						splitAllMappings(all_mappings, *cCohort, true);
-						cSWindow->appendCohort(cCohort);
-						if (cCohort->readings.empty()) {
-							initEmptyCohort(*cCohort);
-						}
-						for (auto iter : cCohort->readings) {
-							addTagToReading(*iter, endtag);
-						}
-						cReading = lReading = nullptr;
-						cCohort = lCohort = nullptr;
-						cSWindow = lSWindow = nullptr;
-					}
-					while (!gWindow->next.empty()) {
-						gWindow->shuffleWindowsDown();
-						runGrammarOnWindow();
-						if (numWindows % resetAfter == 0) {
-							resetIndexes();
-						}
-						if (verbosity_level > 0) {
-							u_fprintf(ux_stderr, "Progress: L:%u, W:%u, C:%u, R:%u\r", lines, numWindows, numCohorts, numReadings);
-							u_fflush(ux_stderr);
-						}
-					}
-					gWindow->shuffleWindowsDown();
-					while (!gWindow->previous.empty()) {
-						SingleWindow* tmp = gWindow->previous.front();
-						printSingleWindow(tmp, output);
-						free_swindow(tmp);
-						gWindow->previous.erase(gWindow->previous.begin());
-					}
 					if (!backSWindow) {
-						u_fprintf(output, "%S", &line[0]);
+						printStreamCommand(UString(STR_CMD_FLUSH), output);
 					}
 					line[0] = 0;
 					variables.clear();
@@ -501,140 +471,44 @@ void GrammarApplicator::runGrammarOnText(std::istream& input, std::ostream& outp
 					if (verbosity_level > 0) {
 						u_fprintf(ux_stderr, "Info: IGNORE encountered on line %u. Passing through all input...\n", numLines);
 					}
+					is_cmd = true;
 					ignoreinput = true;
+					printStreamCommand(UString(STR_CMD_IGNORE), output);
+					line[0] = 0;
 				}
 				else if (&cleaned[0] == STR_CMD_RESUME) {
 					if (verbosity_level > 0) {
 						u_fprintf(ux_stderr, "Info: RESUME encountered on line %u. Resuming CG...\n", numLines);
 					}
+					is_cmd = true;
 					ignoreinput = false;
+					printStreamCommand(UString(STR_CMD_RESUME), output);
+					line[0] = 0;
 				}
 				else if (&cleaned[0] == STR_CMD_EXIT) {
 					if (verbosity_level > 0) {
 						u_fprintf(ux_stderr, "Info: EXIT encountered on line %u. Exiting...\n", numLines);
 					}
-					u_fprintf(output, "%S", &line[0]);
+					is_cmd = true;
+					printStreamCommand(UString(STR_CMD_EXIT), output);
 					goto CGCMD_EXIT;
 				}
 				else if (u_strncmp(&cleaned[0], STR_CMD_SETVAR.data(), SI32(STR_CMD_SETVAR.size())) == 0) {
-					//u_fprintf(ux_stderr, "Info: SETVAR encountered on line %u.\n", numLines);
+					is_cmd = true;
 					cleaned[packoff - 1] = 0;
+					printStreamCommand(&cleaned[0], output);
 					line[0] = 0;
-
-					UChar* s = &cleaned[STR_CMD_SETVAR.size()];
-					UChar* c = u_strchr(s, ',');
-					UChar* d = u_strchr(s, '=');
-					if (c == 0 && d == 0) {
-						Tag* tag = addTag(s);
-						variables_set[tag->hash] = grammar->tag_any;
-						variables_rem.erase(tag->hash);
-						variables_output.insert(tag->hash);
-						if (cSWindow == nullptr) {
-							variables[tag->hash] = grammar->tag_any;
-						}
-					}
-					else {
-						uint32_t a = 0, b = 0;
-						while (c || d) {
-							if (d && (d < c || c == nullptr)) {
-								d[0] = 0;
-								if (!s[0]) {
-									u_fprintf(ux_stderr, "Warning: SETVAR on line %u had no identifier before the =! Defaulting to identifier *.\n", numLines);
-									a = grammar->tag_any;
-								}
-								else {
-									a = addTag(s)->hash;
-								}
-								if (c) {
-									c[0] = 0;
-									s = c + 1;
-								}
-								if (!d[1]) {
-									u_fprintf(ux_stderr, "Warning: SETVAR on line %u had no value after the =! Defaulting to value *.\n", numLines);
-									b = grammar->tag_any;
-								}
-								else {
-									b = addTag(d + 1)->hash;
-								}
-								if (!c) {
-									d = nullptr;
-									s = nullptr;
-								}
-								variables_set[a] = b;
-								variables_rem.erase(a);
-								variables_output.insert(a);
-							}
-							else if (c && (c < d || d == nullptr)) {
-								c[0] = 0;
-								if (!s[0]) {
-									u_fprintf(ux_stderr, "Warning: SETVAR on line %u had no identifier after the ,! Defaulting to identifier *.\n", numLines);
-									a = grammar->tag_any;
-								}
-								else {
-									a = addTag(s)->hash;
-								}
-								s = c + 1;
-								variables_set[a] = grammar->tag_any;
-								variables_rem.erase(a);
-								variables_output.insert(a);
-							}
-							if (s) {
-								c = u_strchr(s, ',');
-								d = u_strchr(s, '=');
-								if (c == nullptr && d == nullptr) {
-									a = addTag(s)->hash;
-									variables_set[a] = grammar->tag_any;
-									variables_rem.erase(a);
-									variables_output.insert(a);
-									s = nullptr;
-								}
-							}
-						}
-					}
 				}
 				else if (u_strncmp(&cleaned[0], STR_CMD_REMVAR.data(), SI32(STR_CMD_REMVAR.size())) == 0) {
-					//u_fprintf(ux_stderr, "Info: REMVAR encountered on line %u.\n", numLines);
+					is_cmd = true;
 					cleaned[packoff - 1] = 0;
+					printStreamCommand(&cleaned[0], output);
 					line[0] = 0;
-
-					UChar* s = &cleaned[STR_CMD_REMVAR.size()];
-					UChar* c = u_strchr(s, ',');
-					uint32_t a = 0;
-					while (c && *c) {
-						c[0] = 0;
-						if (s[0]) {
-							a = addTag(s)->hash;
-							variables_set.erase(a);
-							variables_rem.insert(a);
-							variables_output.insert(a);
-						}
-						s = c + 1;
-						c = u_strchr(s, ',');
-					}
-					if (s && s[0]) {
-						a = addTag(s)->hash;
-						variables_set.erase(a);
-						variables_rem.insert(a);
-						variables_output.insert(a);
-					}
 				}
 
 				if (line[0]) {
 					if (lSWindow && lCohort && testStringAgainst(line, text_delimiters)) {
 						lSWindow->text_post += &line[0];
-
-						for (auto iter : cCohort->readings) {
-							addTagToReading(*iter, endtag);
-						}
-
-						splitAllMappings(all_mappings, *cCohort, true);
-						cSWindow->appendCohort(cCohort);
-						cCohort->line_number = numLines;
-						lSWindow = cSWindow;
-						cSWindow = nullptr;
-						cCohort = nullptr;
-						numCohorts++;
-						did_soft_lookback = false;
 					}
 					else if (lCohort) {
 						lCohort->text += &line[0];
@@ -642,8 +516,8 @@ void GrammarApplicator::runGrammarOnText(std::istream& input, std::ostream& outp
 					else if (lSWindow) {
 						lSWindow->text += &line[0];
 					}
-					else {
-						u_fprintf(output, "%S", &line[0]);
+					else if (!is_cmd) {
+						printPlainTextLine(&line[0], output, false);
 					}
 				}
 			}
@@ -689,18 +563,20 @@ void GrammarApplicator::runGrammarOnText(std::istream& input, std::ostream& outp
 	for (auto var : variables_output) {
 		Tag* key = grammar->single_tags[var];
 		auto iter = variables_set.find(var);
+		UString cmd_buf;
 		if (iter != variables_set.end()) {
 			if (iter->second != grammar->tag_any) {
 				Tag* value = grammar->single_tags[iter->second];
-				u_fprintf(output, "%S%S=%S>\n", STR_CMD_SETVAR.data(), key->tag.data(), value->tag.data());
+				cmd_buf.append(STR_CMD_SETVAR).append(key->tag).append(u"=").append(value->tag).append(u">");
 			}
 			else {
-				u_fprintf(output, "%S%S>\n", STR_CMD_SETVAR.data(), key->tag.data());
+				cmd_buf.append(STR_CMD_SETVAR).append(key->tag).append(u">");
 			}
 		}
 		else {
-			u_fprintf(output, "%S%S>\n", STR_CMD_REMVAR.data(), key->tag.data());
+			cmd_buf.append(STR_CMD_REMVAR).append(key->tag).append(u">");
 		}
+		printStreamCommand(cmd_buf, output);
 	}
 
 CGCMD_EXIT:

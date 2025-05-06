@@ -277,7 +277,7 @@ void NicelineApplicator::runGrammarOnText(std::istream& input, std::ostream& out
 					lSWindow->text += &line[0];
 				}
 				else {
-					u_fprintf(output, "%S", &line[0]);
+					printPlainTextLine(&line[0], output, false);
 				}
 			}
 		}
@@ -313,6 +313,7 @@ void NicelineApplicator::runGrammarOnText(std::istream& input, std::ostream& out
 	u_fflush(output);
 }
 
+// Update signature here
 void NicelineApplicator::printReading(const Reading* reading, std::ostream& output) {
 	if (reading->noprint) {
 		return;
