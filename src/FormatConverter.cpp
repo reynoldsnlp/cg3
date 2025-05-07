@@ -103,8 +103,8 @@ void FormatConverter::printCohort(Cohort* cohort, std::ostream& output, bool pro
 		break;
 	}
 	default:
-		GrammarApplicator::printCohort(cohort, output, profiling);
-	}
+		CG3Quit();
+}
 }
 
 void FormatConverter::printSingleWindow(SingleWindow* window, std::ostream& output, bool profiling) {
@@ -134,8 +134,8 @@ void FormatConverter::printSingleWindow(SingleWindow* window, std::ostream& outp
 		break;
 	}
 	default:
-		GrammarApplicator::printSingleWindow(window, output, profiling);
-	}
+		CG3Quit();
+}
 }
 
 void FormatConverter::printStreamCommand(const UString& cmd, std::ostream& output) {

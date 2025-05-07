@@ -807,7 +807,7 @@ void ApertiumApplicator::printReading(const Reading* reading, std::ostream& outp
 	}
 }
 
-void ApertiumApplicator::printReading(const Reading* reading, std::ostream& output, size_t sub) {
+void ApertiumApplicator::printReading(const Reading* reading, std::ostream& output) {
 	size_t firstlower = 0;
 	ApertiumCasing casing = ApertiumCasing::Lower;
 

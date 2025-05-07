@@ -42,7 +42,7 @@ public:
 	void testPR(std::ostream& output);
 
 protected:
-	void printReading(const Reading* reading, std::ostream& output, size_t sub = 0);
+	void printReading(const Reading* reading, std::ostream& output);
 	void printCohort(Cohort* cohort, std::ostream& output, bool profiling = false) override;
 	void printSingleWindow(SingleWindow* window, std::ostream& output, bool profiling = false) override;
 

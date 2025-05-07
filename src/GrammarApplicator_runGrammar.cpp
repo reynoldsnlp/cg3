@@ -457,8 +457,41 @@ void GrammarApplicator::runGrammarOnText(std::istream& input, std::ostream& outp
 					if (backSWindow) {
 						backSWindow->flush_after = true;
 					}
+
+					if (cCohort && cSWindow) {
+						splitAllMappings(all_mappings, *cCohort, true);
+						cSWindow->appendCohort(cCohort);
+						if (cCohort->readings.empty()) {
+							initEmptyCohort(*cCohort);
+						}
+						for (auto iter : cCohort->readings) {
+							addTagToReading(*iter, endtag);
+						}
+						cReading = lReading = nullptr;
+						cCohort = lCohort = nullptr;
+						cSWindow = lSWindow = nullptr;
+					}
+					while (!gWindow->next.empty()) {
+						gWindow->shuffleWindowsDown();
+						runGrammarOnWindow();
+						if (numWindows % resetAfter == 0) {
+							resetIndexes();
+						}
+						if (verbosity_level > 0) {
+							u_fprintf(ux_stderr, "Progress: L:%u, W:%u, C:%u, R:%u\r", lines, numWindows, numCohorts, numReadings);
+							u_fflush(ux_stderr);
+						}
+					}
+					gWindow->shuffleWindowsDown();
+					while (!gWindow->previous.empty()) {
+						SingleWindow* tmp = gWindow->previous.front();
+						printSingleWindow(tmp, output);
+						free_swindow(tmp);
+						gWindow->previous.erase(gWindow->previous.begin());
+					}
+
 					if (!backSWindow) {
-						printStreamCommand(UString(STR_CMD_FLUSH), output);
+						printPlainTextLine(&line[0], output);
 					}
 					line[0] = 0;
 					variables.clear();
