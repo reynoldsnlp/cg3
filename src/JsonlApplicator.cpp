@@ -37,14 +37,12 @@ namespace json = rapidjson;
 namespace CG3 {
 
 JsonlApplicator::JsonlApplicator(std::ostream& ux_err)
-  : GrammarApplicator(ux_err)
-{
+  : GrammarApplicator(ux_err) {
 }
 
 // Add explicit destructor definition to potentially anchor the vtable
-JsonlApplicator::~JsonlApplicator()
-{
-    // Empty destructor body
+JsonlApplicator::~JsonlApplicator() {
+	// Empty destructor body
 }
 
 // Helper to safely get string from JSON, converting to UString
@@ -98,10 +96,12 @@ Reading* JsonlApplicator::parseJsonReading(const json::Value& reading_obj, Cohor
 			base_tag += base_str;
 			base_tag += '"';
 			addTagToReading(*cReading, addTag(base_tag));
-		} else {
+		}
+		else {
 			u_fprintf(ux_stderr, "Warning: Empty 'l' (baseform) in reading on line %u.\n", numLines);
 		}
-	} else {
+	}
+	else {
 		u_fprintf(ux_stderr, "Warning: Reading missing 'l' (baseform) on line %u.\n", numLines);
 	}
 
@@ -115,7 +115,8 @@ Reading* JsonlApplicator::parseJsonReading(const json::Value& reading_obj, Cohor
 				Tag* tag = addTag(tag_str);
 				if (tag->type & T_MAPPING || (!tag_str.empty() && tag_str[0] == grammar->mapping_prefix)) {
 					mappings.push_back(tag);
-				} else {
+				}
+				else {
 					addTagToReading(*cReading, tag);
 				}
 			}
@@ -132,10 +133,12 @@ Reading* JsonlApplicator::parseJsonReading(const json::Value& reading_obj, Cohor
 			Reading* subReading = parseJsonReading(sub_reading_val, parentCohort);
 			if (subReading) {
 				cReading->next = subReading;
-			} else {
+			}
+			else {
 				u_fprintf(ux_stderr, "Error: Failed to parse subreading object on line %u.\n", numLines);
 			}
-		} else {
+		}
+		else {
 			u_fprintf(ux_stderr, "Warning: Value for 's' (sub_reading) is not an object on line %u. Skipping.\n", numLines);
 		}
 	}
@@ -157,7 +160,8 @@ void JsonlApplicator::parseJsonCohort(const json::Value& obj, SingleWindow* cSWi
 	UString wform_str;
 	if (obj.HasMember("w")) {
 		wform_str = json_to_ustring(obj["w"]);
-	} else {
+	}
+	else {
 		u_fprintf(ux_stderr, "Warning: JSON cohort on line %u missing 'w' (wordform). Using empty.\n", numLines);
 	}
 	UString wform_tag;
@@ -198,7 +202,8 @@ void JsonlApplicator::parseJsonCohort(const json::Value& obj, SingleWindow* cSWi
 			if (cReading) {
 				cCohort->appendReading(cReading);
 				++numReadings; // Increment only if parsing succeeded
-			} else {
+			}
+			else {
 				u_fprintf(ux_stderr, "Error: Failed to parse main reading on line %u.\n", numLines);
 			}
 		}
@@ -219,11 +224,13 @@ void JsonlApplicator::parseJsonCohort(const json::Value& obj, SingleWindow* cSWi
 	// parse deleted readings ("drs")
 	if (obj.HasMember("drs") && obj["drs"].IsArray()) {
 		for (const auto& dr_val : obj["drs"].GetArray()) {
-			if (!dr_val.IsObject()) continue;
+			if (!dr_val.IsObject())
+				continue;
 			Reading* delR = parseJsonReading(dr_val, cCohort);
 			if (delR) {
 				cCohort->deleted.push_back(delR);
-			} else {
+			}
+			else {
 				u_fprintf(ux_stderr, "Error: Failed to parse deleted reading on line %u.\n", numLines);
 			}
 		}
@@ -254,7 +261,8 @@ void JsonlApplicator::runGrammarOnText(std::istream& input, std::ostream& output
 	if (!grammar->delimiters || grammar->delimiters->empty()) {
 		if (!grammar->soft_delimiters || grammar->soft_delimiters->empty()) {
 			u_fprintf(ux_stderr, "Warning: No soft or hard delimiters defined in grammar. Hard limit of %u cohorts may break windows.\n", hard_limit);
-		} else {
+		}
+		else {
 			u_fprintf(ux_stderr, "Warning: No hard delimiters defined in grammar. Soft limit of %u cohorts may break windows.\n", soft_limit);
 		}
 	}
@@ -289,7 +297,7 @@ void JsonlApplicator::runGrammarOnText(std::istream& input, std::ostream& output
 
 		if (!ok) {
 			u_fprintf(ux_stderr, "Warning: Failed to parse JSON on line %u: %s (offset %zu). Skipping line.\n",
-					  numLines, json::GetParseError_En(ok.Code()), ok.Offset());
+			  numLines, json::GetParseError_En(ok.Code()), ok.Offset());
 			continue;
 		}
 
@@ -315,18 +323,24 @@ void JsonlApplicator::runGrammarOnText(std::istream& input, std::ostream& output
 						backSWindow->flush_after = true;
 					}
 					u_fflush(output); // Ensure output is flushed
-				} else if (cmd_ustr == STR_CMD_IGNORE) {
+				}
+				else if (cmd_ustr == STR_CMD_IGNORE) {
 					ignoreinput = true;
-				} else if (cmd_ustr == STR_CMD_RESUME) {
+				}
+				else if (cmd_ustr == STR_CMD_RESUME) {
 					ignoreinput = false;
-				} else if (cmd_ustr == STR_CMD_EXIT) {
+				}
+				else if (cmd_ustr == STR_CMD_EXIT) {
 					goto CGCMD_EXIT_JSONL;
-				} else if (u_strncmp(cmd_ustr.data(), STR_CMD_SETVAR.data(), SI32(STR_CMD_SETVAR.size())) == 0) {
+				}
+				else if (u_strncmp(cmd_ustr.data(), STR_CMD_SETVAR.data(), SI32(STR_CMD_SETVAR.size())) == 0) {
 					// Parse and apply SETVAR logic if needed during input
-				} else if (u_strncmp(cmd_ustr.data(), STR_CMD_REMVAR.data(), SI32(STR_CMD_REMVAR.size())) == 0) {
+				}
+				else if (u_strncmp(cmd_ustr.data(), STR_CMD_REMVAR.data(), SI32(STR_CMD_REMVAR.size())) == 0) {
 					// Parse and apply REMVAR logic if needed during input
 				}
-			} else {
+			}
+			else {
 				u_fprintf(ux_stderr, "Warning: Empty 'cmd' value on line %u.\n", numLines);
 			}
 			continue; // Skip cohort processing for this line
@@ -343,7 +357,7 @@ void JsonlApplicator::runGrammarOnText(std::istream& input, std::ostream& output
 			continue;
 		}
 
-		if (doc.HasMember("z")) {
+		if (doc.HasMember("z") && !doc.HasMember("w")) {
 			UString z_ustr = json_to_ustring(doc["z"]);
 			if (!z_ustr.empty()) {
 				// Handle plain text line. Associate with cohort/window or log.
@@ -354,93 +368,93 @@ void JsonlApplicator::runGrammarOnText(std::istream& input, std::ostream& output
 				// If needed, append to lCohort->text or lSWindow->text based on state.
 				if (lCohort) {
 					lCohort->text += z_ustr;
-					lCohort->text += u'\n'; // Assume newline separation
-				} else if (lSWindow) {
+					lCohort->text += u'\n';
+				}
+				else if (lSWindow) {
 					lSWindow->text += z_ustr;
 					lSWindow->text += u'\n';
-				} else {
-					// If no context, maybe print directly? Or buffer?
-					// For now, just ignore if no context.
 				}
-			} else {
+				else {
+					printPlainTextLine(z_ustr, output, false);
+				}
+			}
+			else {
 				u_fprintf(ux_stderr, "Warning: Empty 'z' value on line %u.\n", numLines);
 			}
 			continue; // Skip cohort processing for this line
-		} else if (!doc.HasMember("w")) {
-            // If it's not a command, not plain text, and not a cohort (missing "w"), warn and skip.
-            u_fprintf(ux_stderr, "Warning: JSON object on line %u is not a recognized type (cohort, cmd, z). Skipping line.\n", numLines);
-            continue;
-        }
-
-		// If it's not cmd or z, assume it's a cohort
-		if (!cSWindow) {
-			cSWindow = gWindow->allocAppendSingleWindow();
-			initEmptySingleWindow(cSWindow);
-			++numWindows;
-			lSWindow = cSWindow; // Update last window context
 		}
-
-		parseJsonCohort(doc, cSWindow, cCohort);
-
-		if (!cCohort) {
-		    u_fprintf(ux_stderr, "Error: Failed to create cohort from JSON on line %u.\n", numLines);
-		    continue;
-		}
-
-		cSWindow->appendCohort(cCohort);
-		lCohort = cCohort; // Update last cohort context
-
-		bool did_delim = false;
-		if (cSWindow->cohorts.size() >= soft_limit && grammar->soft_delimiters && doesSetMatchCohortNormal(*cCohort, grammar->soft_delimiters->number)) {
-			if (verbosity_level > 0) {
-				u_fprintf(ux_stderr, "Info: Soft limit of %u cohorts reached at line %u with soft delimiter.\n", soft_limit, numLines);
+		else if (doc.HasMember("w"))  // "w" means it is a cohort
+		{
+			if (!cSWindow) {
+				cSWindow = gWindow->allocAppendSingleWindow();
+				initEmptySingleWindow(cSWindow);
+				++numWindows;
+				lSWindow = cSWindow;
 			}
-			for (auto iter : cCohort->readings) {
-				addTagToReading(*iter, endtag);
+
+			parseJsonCohort(doc, cSWindow, cCohort);
+
+			if (!cCohort) {
+				u_fprintf(ux_stderr, "Error: Failed to create cohort from JSON on line %u.\n", numLines);
+				continue;
 			}
-			cSWindow = nullptr;
+
+			cSWindow->appendCohort(cCohort);
+			lCohort = cCohort;
+
+			bool did_delim = false;
+			if (cSWindow->cohorts.size() >= soft_limit && grammar->soft_delimiters && doesSetMatchCohortNormal(*cCohort, grammar->soft_delimiters->number)) {
+				if (verbosity_level > 0) {
+					u_fprintf(ux_stderr, "Info: Soft limit of %u cohorts reached at line %u with soft delimiter.\n", soft_limit, numLines);
+				}
+				for (auto iter : cCohort->readings) {
+					addTagToReading(*iter, endtag);
+				}
+				cSWindow = nullptr;
+				cCohort = nullptr;
+				did_delim = true;
+			}
+			else if (cSWindow->cohorts.size() >= hard_limit || (grammar->delimiters && doesSetMatchCohortNormal(*cCohort, grammar->delimiters->number))) {
+				if (cSWindow->cohorts.size() >= hard_limit) {
+					u_fprintf(ux_stderr, "Warning: Hard limit of %u cohorts reached at line %u - forcing break.\n", hard_limit, numLines);
+				}
+				for (auto iter : cCohort->readings) {
+					addTagToReading(*iter, endtag);
+				}
+				cSWindow = nullptr;
+				cCohort = nullptr;
+				did_delim = true;
+			}
+
+			if (did_delim || gWindow->next.size() > num_windows) {
+				gWindow->shuffleWindowsDown();
+				runGrammarOnWindow();
+				if (numWindows % resetAfter == 0) {
+					resetIndexes();
+				}
+				if (verbosity_level > 0) {
+					u_fprintf(ux_stderr, "Progress: L:%u, W:%u, C:%u, R:%u\r", lines, numWindows, numCohorts, numReadings);
+					u_fflush(ux_stderr);
+				}
+			}
 			cCohort = nullptr;
-			did_delim = true;
-		} else if (cSWindow->cohorts.size() >= hard_limit || (grammar->delimiters && doesSetMatchCohortNormal(*cCohort, grammar->delimiters->number))) {
-			if (cSWindow->cohorts.size() >= hard_limit) {
-				u_fprintf(ux_stderr, "Warning: Hard limit of %u cohorts reached at line %u - forcing break.\n", hard_limit, numLines);
-			}
-			for (auto iter : cCohort->readings) {
-				addTagToReading(*iter, endtag);
-			}
-			cSWindow = nullptr;
-			cCohort = nullptr;
-			did_delim = true;
 		}
-
-		if (did_delim || gWindow->next.size() > num_windows) {
-			gWindow->shuffleWindowsDown();
-			runGrammarOnWindow();
-			if (numWindows % resetAfter == 0) {
-				resetIndexes();
-			}
-			if (verbosity_level > 0) {
-				u_fprintf(ux_stderr, "Progress: L:%u, W:%u, C:%u, R:%u\r", lines, numWindows, numCohorts, numReadings);
-				u_fflush(ux_stderr);
-			}
-		}
-        cCohort = nullptr; // Reset cCohort after processing
 	}
 
 	if (cSWindow && !cSWindow->cohorts.empty()) {
-        Cohort* lastCohort = cSWindow->cohorts.back();
-        for (auto iter : lastCohort->readings) {
-            addTagToReading(*iter, endtag);
-        }
-    }
+		Cohort* lastCohort = cSWindow->cohorts.back();
+		for (auto iter : lastCohort->readings) {
+			addTagToReading(*iter, endtag);
+		}
+	}
 
 	while (!gWindow->next.empty()) {
 		gWindow->shuffleWindowsDown();
 		runGrammarOnWindow();
 	}
-    if(gWindow->current) {
-        runGrammarOnWindow();
-    }
+	if (gWindow->current) {
+		runGrammarOnWindow();
+	}
 
 	gWindow->shuffleWindowsDown();
 	while (!gWindow->previous.empty()) {
@@ -503,7 +517,8 @@ void JsonlApplicator::buildJsonReading(const Reading* reading, json::Value& read
 			auto& tag = it->second->tag;
 			if (tag.size() >= 2 && tag.front() == '"' && tag.back() == '"') {
 				baseform_utf8 = ustring_to_utf8(tag.substr(1, tag.size() - 2));
-			} else {
+			}
+			else {
 				baseform_utf8 = ustring_to_utf8(tag);
 			}
 		}
@@ -543,7 +558,8 @@ void JsonlApplicator::printCohort(Cohort* cohort, std::ostream& output, bool pro
 	std::string wform_utf8;
 	if (wform_tag.size() >= 4 && wform_tag.substr(0, 2) == u"\"<" && wform_tag.substr(wform_tag.size() - 2) == u">\"") {
 		wform_utf8 = ustring_to_utf8(wform_tag.substr(2, wform_tag.size() - 4));
-	} else {
+	}
+	else {
 		wform_utf8 = ustring_to_utf8(wform_tag);
 	}
 	json::Value w_val(wform_utf8.c_str(), allocator);
@@ -583,11 +599,11 @@ void JsonlApplicator::printCohort(Cohort* cohort, std::ostream& output, bool pro
 		if (!z_text.empty() && z_text.back() == u'\n') {
 			z_text.pop_back();
 		}
-        if (!z_text.empty()) {
-            std::string z_utf8 = ustring_to_utf8(z_text);
-            json::Value z_val(z_utf8.c_str(), allocator);
-            doc.AddMember("z", z_val, allocator);
-        }
+		if (!z_text.empty()) {
+			std::string z_utf8 = ustring_to_utf8(z_text);
+			json::Value z_val(z_utf8.c_str(), allocator);
+			doc.AddMember("z", z_val, allocator);
+		}
 	}
 
 	if (has_dep && !(cohort->type & CT_REMOVED)) {

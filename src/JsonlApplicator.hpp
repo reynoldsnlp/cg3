@@ -25,7 +25,6 @@
 
 namespace CG3 {
 
-// Inherit virtually
 class JsonlApplicator : public virtual GrammarApplicator {
 public:
 	JsonlApplicator(std::ostream& ux_err);

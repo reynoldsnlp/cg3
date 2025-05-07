@@ -25,7 +25,6 @@
 
 namespace CG3 {
 
-// Inherit virtually
 class PlaintextApplicator : public virtual GrammarApplicator {
 public:
 	bool add_tags = false;
@@ -40,6 +39,6 @@ protected:
 	void printSingleWindow(SingleWindow* window, std::ostream& output, bool profiling = false) override;
 };
 
-} // namespace CG3
+}
 
-#endif // c6d28b7452ec699b_PLAINTEXTAPPLICATOR_HPP
+#endif

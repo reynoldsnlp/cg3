@@ -30,6 +30,7 @@ namespace CG3 {
 PlaintextApplicator::PlaintextApplicator(std::ostream& ux_err)
   : GrammarApplicator(ux_err)
 {
+	allow_magic_readings = true;
 }
 
 void PlaintextApplicator::runGrammarOnText(std::istream& input, std::ostream& output) {
@@ -74,6 +75,7 @@ void PlaintextApplicator::runGrammarOnText(std::istream& input, std::ostream& ou
 
 	SingleWindow* cSWindow = nullptr;
 	Cohort* cCohort = nullptr;
+	Reading* cReading = nullptr;
 
 	SingleWindow* lSWindow = nullptr;
 	Cohort* lCohort = nullptr;
@@ -91,23 +93,7 @@ void PlaintextApplicator::runGrammarOnText(std::istream& input, std::ostream& ou
 			cleaned[packoff - 1] = 0;
 			--packoff;
 		}
-		if (ignoreinput) {
-			goto istext;
-		}
-		if (cleaned[0]) {
-			UChar* space = &cleaned[0];
-			SKIPTO_NOSPAN_RAW(space, ' ');
-
-			if (space[0] != ' ') {
-				goto istext;
-			}
-			space[0] = 0;
-
-			UString tag;
-			tag.append(u"\"<");
-			tag += &cleaned[0];
-			tag.append(u">\"");
-
+		if (!ignoreinput && cleaned[0] && cleaned[0] != '<') {
 			if (cCohort && cCohort->readings.empty()) {
 				initEmptyCohort(*cCohort);
 			}
@@ -140,6 +126,7 @@ void PlaintextApplicator::runGrammarOnText(std::istream& input, std::ostream& ou
 
 				cSWindow->appendCohort(cCohort);
 				lSWindow = cSWindow;
+				lCohort = cCohort;
 				cSWindow = nullptr;
 				cCohort = nullptr;
 				numCohorts++;
@@ -156,22 +143,22 @@ void PlaintextApplicator::runGrammarOnText(std::istream& input, std::ostream& ou
 
 				cSWindow->appendCohort(cCohort);
 				lSWindow = cSWindow;
+				lCohort = cCohort;
 				cSWindow = nullptr;
 				cCohort = nullptr;
 				numCohorts++;
 				did_soft_lookback = false;
 			}
 			if (!cSWindow) {
+				// ToDo: Refactor to allocate SingleWindow, Cohort, and Reading from their containers
 				cSWindow = gWindow->allocAppendSingleWindow();
 				initEmptySingleWindow(cSWindow);
 
 				lSWindow = cSWindow;
+				lCohort = cSWindow->cohorts[0];
 				cCohort = nullptr;
 				numWindows++;
 				did_soft_lookback = false;
-			}
-			if (cCohort && cSWindow) {
-				cSWindow->appendCohort(cCohort);
 			}
 			if (gWindow->next.size() > num_windows) {
 				gWindow->shuffleWindowsDown();
@@ -184,16 +171,101 @@ void PlaintextApplicator::runGrammarOnText(std::istream& input, std::ostream& ou
 					u_fflush(ux_stderr);
 				}
 			}
+			std::vector<UChar*> tokens_raw;
+			UChar* base = &cleaned[0];
+			UChar* space = base;
+
+			while (space && *space && (space = u_strchr(space, ' ')) != 0) {
+				space[0] = 0;
+				if (base && base[0]) {
+					tokens_raw.push_back(base);
+				}
+				base = ++space;
+			}
+			if (base && base[0]) {
+				tokens_raw.push_back(base);
+			}
+
+			std::vector<UnicodeString> tokens;
+			for (auto p : tokens_raw) {
+				size_t len = u_strlen(p);
+				while (*p && u_ispunct(p[0])) {
+					tokens.push_back(UnicodeString(p[0]));
+					++p;
+					--len;
+				}
+				size_t tkz = tokens.size();
+				while (*p && u_ispunct(p[len - 1])) {
+					tokens.push_back(UnicodeString(p[len - 1]));
+					p[len - 1] = 0;
+					--len;
+				}
+				if (*p) {
+					tokens.insert(tokens.begin() + tkz, UnicodeString(p));
+				}
+			}
+
+			UString tag;
+			for (auto& token : tokens) {
+				bool first_upper = (u_isupper(token[0]) != 0);
+				bool all_upper = first_upper;
+				bool mixed_upper = false;
+				for (int32_t i = 1; i < token.length(); ++i) {
+					if (u_isupper(token[i])) {
+						mixed_upper = true;
+					}
+					else {
+						all_upper = false;
+					}
+				}
+
 			cCohort = alloc_cohort(cSWindow);
 			cCohort->global_number = gWindow->cohort_counter++;
-			cCohort->wordform = addTag(tag);
+			tag.clear();
+			tag.append(u"\"<");
+			tag += token.getTerminatedBuffer();
+			tag.append(u">\"");
+		cCohort->wordform = addTag(tag);
 			lCohort = cCohort;
 			numCohorts++;
+
+			cReading = initEmptyCohort(*cCohort);
+			cReading->noprint = !add_tags;
+			if (add_tags) {
+				constexpr char _tag[] = "<cg-conv>";
+				tag.assign(_tag, _tag + sizeof(_tag) - 1);
+				addTagToReading(*cReading, addTag(tag));
+			}
+			if (add_tags && (first_upper || all_upper || mixed_upper)) {
+				delTagFromReading(*cReading, cReading->baseform);
+				token.toLower();
+				tag.clear();
+				tag += '"';
+				tag += token.getTerminatedBuffer();
+				tag += '"';
+				addTagToReading(*cReading, addTag(tag));
+				if (all_upper) {
+					constexpr char _tag[] = "<all-upper>";
+					tag.assign(_tag, _tag + sizeof(_tag) - 1);
+					addTagToReading(*cReading, addTag(tag));
+				}
+				if (first_upper) {
+					constexpr char _tag[] = "<first-upper>";
+					tag.assign(_tag, _tag + sizeof(_tag) - 1);
+					addTagToReading(*cReading, addTag(tag));
+				}
+				if (mixed_upper && !all_upper) {
+					constexpr char _tag[] = "<mixed-upper>";
+					tag.assign(_tag, _tag + sizeof(_tag) - 1);
+					addTagToReading(*cReading, addTag(tag));
+				}
+			}
+			cSWindow->appendCohort(cCohort);
+			cCohort = nullptr;
 		}
+	}
 		else {
-		istext:
 			if (cleaned[0] && line[0]) {
-				// Plaintext format doesn't have stream commands.
 				if (lCohort) {
 					lCohort->text += &line[0];
 				}
@@ -201,15 +273,13 @@ void PlaintextApplicator::runGrammarOnText(std::istream& input, std::ostream& ou
 					lSWindow->text += &line[0];
 				}
 				else {
-					printPlainTextLine(&line[0], output, false); // Original line included newline
+					printPlainTextLine(&line[0], output, false);
 				}
 			}
 		}
 		numLines++;
 		line[0] = cleaned[0] = 0;
 	}
-
-	input_eof = true;
 
 	if (cCohort && cSWindow) {
 		cSWindow->appendCohort(cCohort);
@@ -219,6 +289,7 @@ void PlaintextApplicator::runGrammarOnText(std::istream& input, std::ostream& ou
 		for (auto iter : cCohort->readings) {
 			addTagToReading(*iter, endtag);
 		}
+		cReading = nullptr;
 		cCohort = nullptr;
 		cSWindow = nullptr;
 	}
@@ -238,70 +309,23 @@ void PlaintextApplicator::runGrammarOnText(std::istream& input, std::ostream& ou
 	u_fflush(output);
 }
 
-// Update signature here
-void PlaintextApplicator::printReading(const Reading* reading, std::ostream& output, size_t sub) {
-	if (reading->noprint) {
-		return;
-	}
-	if (reading->deleted) {
-		return;
-	}
-
-	if (reading->baseform) {
-		auto& tag = grammar->single_tags.find(reading->baseform)->second->tag;
-		u_fprintf(output, "%.*S", tag.size() - 2, tag.data() + 1);
-	}
-	u_fputc('\n', output);
-
-	if (reading->next) {
-		printReading(reading->next, output, sub + 1); // Pass sub + 1 for potential indentation (though not used here)
-	}
-}
-
-// Remove override
-void PlaintextApplicator::printCohort(Cohort* cohort, std::ostream& output, bool profiling) {
+void PlaintextApplicator::printCohort(Cohort* cohort, std::ostream& output, bool) {
 	if (cohort->local_number == 0) {
-		goto removed;
+		return;
 	}
 	if (cohort->type & CT_REMOVED) {
-		goto removed;
+		return;
 	}
 
-	if (!cohort->wblank.empty()) {
-		printPlainTextLine(cohort->wblank, output, !ISNL(cohort->wblank.back()));
+	u_fprintf(output, "%.*S ", cohort->wordform->tag.size() - 4, cohort->wordform->tag.data() + 2);  // TODO check all u_fprintf for JSONL output safety
 	}
 
-	if (!profiling) {
-		cohort->unignoreAll();
-	}
-
-	std::sort(cohort->readings.begin(), cohort->readings.end(), Reading::cmp_number);
-	for (auto rter1 : cohort->readings) {
-		printReading(rter1, output);
-		break; // Only print the first reading in plaintext mode
-	}
-
-removed:
-	if (!cohort->text.empty() && cohort->text.find_first_not_of(ws) != UString::npos) {
-		printPlainTextLine(cohort->text, output, !ISNL(cohort->text.back()));
-	}
-}
-
-// Remove override
 void PlaintextApplicator::printSingleWindow(SingleWindow* window, std::ostream& output, bool profiling) {
-	if (!window->text.empty()) {
-		printPlainTextLine(window->text, output, !ISNL(window->text.back()));
-	}
-
 	for (auto& cohort : window->all_cohorts) {
 		printCohort(cohort, output, profiling);
 	}
-
-	if (!window->text_post.empty()) {
-		printPlainTextLine(window->text_post, output, !ISNL(window->text_post.back()));
-	}
-
+	u_fputc('\n', output);
 	u_fflush(output);
+	}
 }
-
-} // namespace CG3
+}
