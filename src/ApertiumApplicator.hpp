@@ -25,14 +25,8 @@
 
 namespace CG3 {
 
-// Add this enum definition
-enum class ApertiumCasing {
-	Lower,
-	Title,
-	Upper
-};
+enum ApertiumCasing { Lower, Title, Upper };
 
-// Inherit virtually
 class ApertiumApplicator : public virtual GrammarApplicator {
 public:
 	ApertiumApplicator(std::ostream& ux_err);
@@ -48,8 +42,7 @@ public:
 	void testPR(std::ostream& output);
 
 protected:
-	// true override matching base
-	void printReading(const Reading* reading, std::ostream& output, size_t sub = 0) override;
+	void printReading(const Reading* reading, std::ostream& output, size_t sub = 0);
 	void printCohort(Cohort* cohort, std::ostream& output, bool profiling = false) override;
 	void printSingleWindow(SingleWindow* window, std::ostream& output, bool profiling = false) override;
 
@@ -66,7 +59,6 @@ private:
 	 */
 	void parseStreamVar(const SingleWindow* cSWindow, UString& cleaned,
 			    uint32FlatHashMap& variables_set, uint32FlatHashSet& variables_rem, uint32SortedVector& variables_output);
-	// Update to use const Reading*
 	void printReading(const Reading* reading, std::ostream& output, ApertiumCasing casing, int32_t firstlower);
 	void processReading(Reading* cReading, UChar* reading_string, Tag* wform);
 	void processReading(Reading* cReading, UString& reading_string, Tag* wform);

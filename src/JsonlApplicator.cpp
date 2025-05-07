@@ -745,10 +745,4 @@ void JsonlApplicator::printPlainTextLine(const UString& line, std::ostream& outp
 	u_fprintf(output, "%s\n", buffer.GetString());
 }
 
-// Add this function definition
-void JsonlApplicator::printReading(const Reading* reading, std::ostream& output, size_t sub) {
-	// JSONL output uses buildJsonReading called from printCohort,
-	// so this function doesn't need to do anything directly.
-}
-
 } // namespace CG3

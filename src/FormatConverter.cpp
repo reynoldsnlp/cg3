@@ -76,40 +76,6 @@ void FormatConverter::runGrammarOnText(std::istream& input, std::ostream& output
 	}
 }
 
-void FormatConverter::printReading(const Reading* reading, std::ostream& output, size_t sub) {
-	switch (outformat) {
-	case FMT_CG: {
-		GrammarApplicator::printReading(reading, output, sub);
-		break;
-	}
-	case FMT_APERTIUM: {
-		 // Call the override that takes const Reading*
-		ApertiumApplicator::printReading(reading, output);
-		break;
-	}
-	case FMT_FST: {
-		FSTApplicator::printReading(reading, output);
-		break;
-	}
-	case FMT_NICELINE: {
-		NicelineApplicator::printReading(reading, output);
-		break;
-	}
-	case FMT_PLAIN: {
-		PlaintextApplicator::printReading(reading, output, sub);
-		break;
-	}
-	case FMT_JSONL: {
-		JsonlApplicator::printReading(reading, output, sub);
-		break;
-	}
-	// Matxin format likely uses the default or needs its own case
-	case FMT_MATXIN:
-	default:
-		GrammarApplicator::printReading(reading, output, sub);
-	}
-}
-
 void FormatConverter::printCohort(Cohort* cohort, std::ostream& output, bool profiling) {
 	switch (outformat) {
 	case FMT_CG: {

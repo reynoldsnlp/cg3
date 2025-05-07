@@ -680,7 +680,6 @@ void ApertiumApplicator::testPR(std::ostream& output) {
 }
 
 void ApertiumApplicator::printReading(const Reading* reading, std::ostream& output, ApertiumCasing casing, int32_t firstlower) {
-	// Use const_cast for reverse call if needed
 	if (reading->next) {
 		printReading(reading->next, output, casing, firstlower);
 		u_fputc('+', output);
@@ -811,6 +810,57 @@ void ApertiumApplicator::printReading(const Reading* reading, std::ostream& outp
 void ApertiumApplicator::printReading(const Reading* reading, std::ostream& output, size_t sub) {
 	size_t firstlower = 0;
 	ApertiumCasing casing = ApertiumCasing::Lower;
+
+	if (wordform_case) {
+		// Use surface/wordform case, eg. if lt-proc
+		// was called with "-w" option (which puts
+		// dictionary case on lemma/basefrom)
+		// cf. fst_processor.cc in lttoolbox
+		const Reading* last = reading;
+		while (last->next && last->next->baseform) {
+			last = last->next;
+		}
+		if (last->baseform) {
+			// Including the initial and final '"' characters
+			UString* bftag = &grammar->single_tags[last->baseform]->tag;
+			// Excluding the initial and final '"' characters
+			size_t bf_length = bftag->size() - 2;
+			UString* wftag = &reading->parent->wordform->tag;
+			size_t wf_length = wftag->size() - 4;
+
+			for (; firstlower < bf_length; ++firstlower) {
+				if (u_islower(bftag->at(firstlower+1)) != 0) {
+					break;
+				}
+			}
+
+			int uppercaseseen = 0;
+			bool allupper = true;
+			// 2-2: Skip the initial and final '"<>"' characters
+			for (size_t i = 2; i < wftag->size() - 2; ++i) {
+				UChar32 c = wftag->at(i);
+				if(u_isUAlphabetic(c)) {
+					if(!u_isUUppercase(c)) {
+						allupper = false;
+						break;
+					}
+					else {
+						++uppercaseseen;
+					}
+				}
+			}
+
+			// Require at least 2 characters to call it UPPER:
+			if (allupper && uppercaseseen >= 2) {
+				casing = ApertiumCasing::Upper;
+			}
+			else if (firstlower < wf_length
+				 && firstlower < bf_length
+				 && (u_isupper(wftag->at(firstlower+2)) != 0)) {
+				casing = ApertiumCasing::Title;
+			}
+		}
+	} // if (wordform_case)
 	printReading(reading, output, casing, SI32(firstlower));
 }
 

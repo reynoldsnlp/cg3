@@ -51,7 +51,6 @@ public:
 
 protected:
 	CG_FORMATS informat, outformat;
-	void printReading(const Reading* reading, std::ostream& output, size_t sub = 0) override;
 	void printCohort(Cohort* cohort, std::ostream& output, bool profiling = false) override;
 	void printSingleWindow(SingleWindow* window, std::ostream& output, bool profiling = false) override;
 	void printStreamCommand(const UString& cmd, std::ostream& output) override;

@@ -194,7 +194,7 @@ public:
 
 protected:
 	void printTrace(std::ostream& output, uint32_t hit_by);
-	virtual void printReading(const Reading* reading, std::ostream& output, size_t sub = 0);
+	void printReading(const Reading* reading, std::ostream& output, size_t sub = 0);
 	virtual void printCohort(Cohort* cohort, std::ostream& output, bool profiling = false);
 	virtual void printSingleWindow(SingleWindow* window, std::ostream& output, bool profiling = false);
 	virtual void printStreamCommand(const UString& cmd, std::ostream& output);

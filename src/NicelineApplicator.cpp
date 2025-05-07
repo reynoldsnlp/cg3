@@ -313,7 +313,6 @@ void NicelineApplicator::runGrammarOnText(std::istream& input, std::ostream& out
 	u_fflush(output);
 }
 
-// Update signature here
 void NicelineApplicator::printReading(const Reading* reading, std::ostream& output) {
 	if (reading->noprint) {
 		return;
