@@ -328,4 +328,3 @@ void PlaintextApplicator::printSingleWindow(SingleWindow* window, std::ostream& 
 	u_fflush(output);
 	}
 }
-}

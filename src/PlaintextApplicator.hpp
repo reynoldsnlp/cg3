@@ -34,11 +34,9 @@ public:
 	void runGrammarOnText(std::istream& input, std::ostream& output) override;
 
 protected:
-	void printReading(const Reading* reading, std::ostream& output, size_t sub = 0);
 	void printCohort(Cohort* cohort, std::ostream& output, bool profiling = false) override;
 	void printSingleWindow(SingleWindow* window, std::ostream& output, bool profiling = false) override;
 };
-
 }
 
 #endif

@@ -26,6 +26,12 @@ INPUT_GLOB_PATTERN = "**/input.txt"
 # Add a timeout value (in seconds)
 PROCESS_TIMEOUT = 5 # Adjust as needed
 
+
+def strip_deps(string):
+    """Strips dependencies from a string."""
+    return re.sub(r'\s*#(\d+)->\1', '', string)
+
+
 def jsonl_has_validation_errors(output_lines, validator, filename):
     """Validates each line of JSONL output."""
     has_errors = False
@@ -57,7 +63,6 @@ with open(SCHEMA_PATH, 'r') as f:
     schema = json.load(f)
 validator = jsonschema.Draft7Validator(schema)
 
-
 print(f"Searching for input files matching '{INPUT_GLOB_PATTERN}' in {SCRIPT_DIR}")
 input_files = list(SCRIPT_DIR.rglob(INPUT_GLOB_PATTERN))
 
@@ -66,73 +71,79 @@ if not input_files:
     sys.exit(0)
 
 print(f"Found {len(input_files)} input files.")
-overall_errors = False
-
+overall_to_fro_errors = 0
+overall_json_validation_errors = 0
 output = {}
+
 for input_file in input_files:
     if re.search(r'Apertium', str(input_file)):
         continue
-    try:
-        # Read the input file content
-        with open(input_file, 'r', encoding='utf-8') as f:
-            input_content = f.read()
 
-        cC_process = subprocess.run(
-            [str(CG_CONV_PATH), "-c", "-C"] + CG_CONV_EXTRA_ARGS,
-            input=input_content, # Pass file content as stdin
-            capture_output=True,
-            text=True,
-        )
-        output["cC"] = {"in": input_content,
-                        "process": cC_process}
+    with open(input_file, 'r', encoding='utf-8') as f:
+        input_content = f.read()
 
-    for stream_format in "afjn":
+    cC_process = subprocess.run(
+        [str(CG_CONV_PATH), "-c", "-C"] + CG_CONV_EXTRA_ARGS,
+        input=input_content, # Pass file content as stdin
+        capture_output=True,
+        text=True,
+    )
+    output["cC"] = {"in": input_content,
+                    "process": cC_process,
+                    "out_str": strip_deps(cC_process.stdout)}
+
+    for stream_format in "aj":  # TODO f and n
+        to_label = f'c{stream_format.upper()}'
         to_process = subprocess.run(
             [str(CG_CONV_PATH), "-c", f"-{stream_format.upper()}"] + CG_CONV_EXTRA_ARGS,
             input=cC_process.stdout,
             capture_output=True,
             text=True,
         )
-        output[f'c{stream_format.upper()}'] = {"process": to_process}
+        output[to_label] = {"process": to_process,
+                            "out_str": strip_deps(to_process.stdout)}
+        fro_label = f'{stream_format}C'
         fro_process = subprocess.run(
             [str(CG_CONV_PATH), f"-{stream_format}", "-C"] + CG_CONV_EXTRA_ARGS,
             input=to_process.stdout,
             capture_output=True,
             text=True,
         )
-        output[f'{stream_format}C'] = {"process": fro_process}
-        if cC_process.stdout != jC_process.stdout:
-            print(f"ERROR: cg-conv C -> C output differs from C -> J -> C output for {input_file}", file=sys.stderr)
+        output[fro_label] = {"process": fro_process,
+                             "out_str": strip_deps(fro_process.stdout)}
+        if output["cC"]["out_str"] != output[fro_label]["out_str"]:
+            print(f"ERROR: cg-conv cC output differs from {to_label}->{fro_label} output for {input_file}", file=sys.stderr)
             # Generate and print a unified diff
             diff = difflib.unified_diff(
-                cC_process.stdout.splitlines(keepends=True),
-                jC_process.stdout.splitlines(keepends=True),
+                output["cC"]["out_str"].splitlines(keepends=True),
+                output[fro_label]["out_str"].splitlines(keepends=True),
                 fromfile='cC_output',
-                tofile='jC_output',
+                tofile=f'{fro_label}_output',
                 lineterm='\n'
             )
             print("       Differences:", file=sys.stderr)
             for line in diff:
                 sys.stderr.write(f"       {line}") # Write directly to preserve formatting
-            print(f"       Intermediate JSONL:{cJ_process.stdout.strip()}\n\n{"="*79}", file=sys.stderr)
-            overall_errors = True
+            print(f"       Intermediate:{output[to_label]["out_str"].strip()}\n\n{"="*79}", file=sys.stderr)
+            overall_to_fro_errors += 1
             continue
 
-        output_lines = cJ_process.stdout.strip().split('\n')
-        if jsonl_has_validation_errors(output_lines, validator, str(input_file)):
-            overall_errors = True
-
-    except FileNotFoundError:
-        print(f"ERROR: Command not found: {CG_CONV_PATH}. Make sure cg-conv is built.", file=sys.stderr)
-        sys.exit(1)
-    except Exception as e:
-        print(f"ERROR: An unexpected error occurred while processing {input_file}: {e}", file=sys.stderr)
-        overall_errors = True
+    output_lines = output["cJ"]["process"].stdout.strip().split('\n')
+    if jsonl_has_validation_errors(output_lines, validator, str(input_file)):
+        overall_json_validation_errors += 1
 
 
-if overall_errors:
-    print("\nValidation finished with errors.")
+if overall_to_fro_errors and overall_json_validation_errors:
+    print(f"\nThere were...\n"
+          f"    {overall_to_fro_errors} round trip conversion errors.\n"
+          f"    {overall_json_validation_errors} JSON validation errors.")
+    sys.exit(3)
+elif overall_to_fro_errors:
+    print(f"\nThere were {overall_to_fro_errors} round trip conversion errors.")
     sys.exit(1)
+elif overall_json_validation_errors:
+    print(f"\nThere were {overall_json_validation_errors} JSON validation errors.")
+    sys.exit(2)
 else:
-    print("\nValidation finished successfully.")
+    print("Round trip conversion and JSON validation finished successfully.")
     sys.exit(0)
