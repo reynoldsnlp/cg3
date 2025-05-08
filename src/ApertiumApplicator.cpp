@@ -234,7 +234,7 @@ void ApertiumApplicator::runGrammarOnText(std::istream& input, std::ostream& out
 				lSWindow->text += blank;
 			}
 			else {
-				u_fprintf(output, "%S", blank.data());
+				printPlainTextLine(blank, output, false);  // TODO This does not appear to show up in tests
 			}
 			blank.clear();
 		}
@@ -254,7 +254,7 @@ void ApertiumApplicator::runGrammarOnText(std::istream& input, std::ostream& out
 		}
 
 		if (c && c != 0xffff) {
-			u_fprintf(output, "%C", c); // eg. final newline
+			printPlainTextLine(UString(1, c), output, false); // TODO this does not appear to show up in tests
 		}
 
 		if (n && !backSWindow) {

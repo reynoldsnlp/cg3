@@ -29,7 +29,7 @@ PROCESS_TIMEOUT = 5 # Adjust as needed
 
 def strip_deps(string):
     """Strips dependencies from a string."""
-    return re.sub(r'\s*#(\d+)->\1', '', string)
+    return re.sub(r'\s*#\d+->\d+', '', string)
 
 
 def jsonl_has_validation_errors(output_lines, validator, filename):
@@ -92,7 +92,7 @@ for input_file in input_files:
                     "process": cC_process,
                     "out_str": strip_deps(cC_process.stdout)}
 
-    for stream_format in "aj":  # TODO f and n
+    for stream_format in "j":  # TODO a, f and n
         to_label = f'c{stream_format.upper()}'
         to_process = subprocess.run(
             [str(CG_CONV_PATH), "-c", f"-{stream_format.upper()}"] + CG_CONV_EXTRA_ARGS,

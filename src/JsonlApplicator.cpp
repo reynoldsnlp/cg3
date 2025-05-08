@@ -347,39 +347,39 @@ void JsonlApplicator::runGrammarOnText(std::istream& input, std::ostream& output
 		}
 
 		if (ignoreinput) { // Check ignoreinput flag
-			// If ignoring input, treat the line as plain text if it has a 'z' field, otherwise skip
-			if (doc.HasMember("z")) {
-				UString z_ustr = json_to_ustring(doc["z"]);
-				if (!z_ustr.empty()) {
-					printPlainTextLine(z_ustr, output, false);
+			// If ignoring input, treat the line as plain text if it has a 't' field, otherwise skip
+			if (doc.HasMember("t")) {
+				UString t_ustr = json_to_ustring(doc["t"]);
+				if (!t_ustr.empty()) {
+					printPlainTextLine(t_ustr, output, false);
 				}
 			}
 			continue;
 		}
 
-		if (doc.HasMember("z") && !doc.HasMember("w")) {
-			UString z_ustr = json_to_ustring(doc["z"]);
-			if (!z_ustr.empty()) {
+		if (doc.HasMember("t") && !doc.HasMember("w")) {
+			UString t_ustr = json_to_ustring(doc["t"]);
+			if (!t_ustr.empty()) {
 				// Handle plain text line. Associate with cohort/window or log.
 				// For now, just log it, as associating requires more context.
 				if (verbosity_level > 1) {
-					u_fprintf(ux_stderr, "Info: Plain text line found in JSONL input on line %u: %S\n", numLines, z_ustr.data());
+					u_fprintf(ux_stderr, "Info: Plain text line found in JSONL input on line %u: %S\n", numLines, t_ustr.data());
 				}
 				// If needed, append to lCohort->text or lSWindow->text based on state.
 				if (lCohort) {
-					lCohort->text += z_ustr;
+					lCohort->text += t_ustr;
 					lCohort->text += u'\n';
 				}
 				else if (lSWindow) {
-					lSWindow->text += z_ustr;
+					lSWindow->text += t_ustr;
 					lSWindow->text += u'\n';
 				}
 				else {
-					printPlainTextLine(z_ustr, output, false);
+					printPlainTextLine(t_ustr, output, false);
 				}
 			}
 			else {
-				u_fprintf(ux_stderr, "Warning: Empty 'z' value on line %u.\n", numLines);
+				u_fprintf(ux_stderr, "Warning: Empty 't' value on line %u.\n", numLines);
 			}
 			continue; // Skip cohort processing for this line
 		}
@@ -660,6 +660,7 @@ void JsonlApplicator::printCohort(Cohort* cohort, std::ostream& output, bool pro
 	doc.Accept(writer);
 
 	u_fprintf(output, "%s\n", buffer.GetString());
+	output.flush();
 }
 
 void JsonlApplicator::printSingleWindow(SingleWindow* window, std::ostream& output, bool profiling) {
@@ -751,8 +752,8 @@ void JsonlApplicator::printPlainTextLine(const UString& line, std::ostream& outp
 	json::Document::AllocatorType& allocator = doc.GetAllocator();
 
 	std::string line_utf8 = ustring_to_utf8(line);
-	json::Value z_val(line_utf8.c_str(), allocator);
-	doc.AddMember("z", z_val, allocator);
+	json::Value t_val(line_utf8.c_str(), allocator);
+	doc.AddMember("t", t_val, allocator);
 
 	json::StringBuffer buffer;
 	json::Writer<json::StringBuffer> writer(buffer);

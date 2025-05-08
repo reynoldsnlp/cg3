@@ -87,9 +87,9 @@ int main(int argc, char* argv[]) {
 			}
 		}
 
-		fprintf(out, "\n\nJSONL format:\n");
-		fprintf(out, "=============\n");
-		fprintf(out, "Cohort keys:\n");
+		fprintf(out, "\n\nKeys for JSONL format:\n");
+		fprintf(out, "======================================\n");
+		fprintf(out, "Cohort:\n");
 		fprintf(out, "  w    wordform / token\n");
 		fprintf(out, "  sts  static tags\n");
 		fprintf(out, "  rs   readings\n");
@@ -97,11 +97,17 @@ int main(int argc, char* argv[]) {
 		fprintf(out, "  ds   dependency self\n");
 		fprintf(out, "  dp   dependency parent\n");
 		fprintf(out, "  z    text suffix (whitespace, etc.)\n");
-		fprintf(out, "-------------\n");
-		fprintf(out, "Reading keys\n");
+		fprintf(out, "--------------------------------------\n");
+		fprintf(out, "Reading:\n");
 		fprintf(out, "  l    lemma / base form\n");
 		fprintf(out, "  ts   tags\n");
 		fprintf(out, "  s    subreading\n");
+		fprintf(out, "--------------------------------------\n");
+		fprintf(out, "Stream Command:\n");
+		fprintf(out, "  cmd  stream command\n");
+		fprintf(out, "--------------------------------------\n");
+		fprintf(out, "Plain text line:\n");
+		fprintf(out, "  t    plain text line\n");
 
 		return argc < 0 ? U_ILLEGAL_ARGUMENT_ERROR : U_ZERO_ERROR;
 	}
