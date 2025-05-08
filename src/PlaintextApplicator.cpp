@@ -317,7 +317,7 @@ void PlaintextApplicator::printCohort(Cohort* cohort, std::ostream& output, bool
 		return;
 	}
 
-	u_fprintf(output, "%.*S ", cohort->wordform->tag.size() - 4, cohort->wordform->tag.data() + 2);  // TODO check all u_fprintf for JSONL output safety
+	u_fprintf(output, "%.*S ", cohort->wordform->tag.size() - 4, cohort->wordform->tag.data() + 2);
 	}
 
 void PlaintextApplicator::printSingleWindow(SingleWindow* window, std::ostream& output, bool profiling) {

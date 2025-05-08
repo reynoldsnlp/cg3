@@ -234,7 +234,7 @@ void ApertiumApplicator::runGrammarOnText(std::istream& input, std::ostream& out
 				lSWindow->text += blank;
 			}
 			else {
-				printPlainTextLine(blank, output, false);  // TODO This does not appear to show up in tests
+				printPlainTextLine(blank, output, false);
 			}
 			blank.clear();
 		}
@@ -254,7 +254,7 @@ void ApertiumApplicator::runGrammarOnText(std::istream& input, std::ostream& out
 		}
 
 		if (c && c != 0xffff) {
-			printPlainTextLine(UString(1, c), output, false); // TODO this does not appear to show up in tests
+			printPlainTextLine(UString(1, c), output, false); // TODO this does not appear to show up in any test/**/input.txt examples so it is untested
 		}
 
 		if (n && !backSWindow) {
