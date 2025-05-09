@@ -244,6 +244,7 @@ void JsonlApplicator::parseJsonCohort(const json::Value& obj, SingleWindow* cSWi
 				continue;
 			Reading* delR = parseJsonReading(dr_val, cCohort);
 			if (delR) {
+				delR->deleted = true;
 				cCohort->deleted.push_back(delR);
 			}
 			else {
@@ -296,6 +297,11 @@ void JsonlApplicator::runGrammarOnText(std::istream& input, std::ostream& output
 
 	gWindow->window_span = num_windows;
 
+	// Declare local variables for variable tracking, similar to GrammarApplicator::runGrammarOnText
+	uint32FlatHashMap variables_set;
+	uint32FlatHashSet variables_rem;
+	uint32SortedVector variables_output;
+
 	ux_stripBOM(input);
 
 	std::string line_str;
@@ -322,52 +328,78 @@ void JsonlApplicator::runGrammarOnText(std::istream& input, std::ostream& output
 			continue;
 		}
 
-		// Check for stream command or plain text line first
 		if (doc.HasMember("cmd")) {
 			UString cmd_ustr = json_to_ustring(doc["cmd"]);
 			if (!cmd_ustr.empty()) {
-				// Process command if needed (e.g., FLUSH, IGNORE, RESUME, EXIT, SETVAR, REMVAR)
-				// For now, we just acknowledge it during input phase.
-				// Specific commands like FLUSH might need state changes.
 				if (cmd_ustr == STR_CMD_FLUSH) {
 					// Similar logic as in GrammarApplicator::runGrammarOnText for FLUSH
 					if (verbosity_level > 0) {
 						u_fprintf(ux_stderr, "Info: FLUSH command encountered in JSONL input on line %u. Flushing...\n", numLines);
 					}
-					auto backSWindow = gWindow->back();
-					if (backSWindow) {
-						backSWindow->flush_after = true;
+					if (cSWindow) {
+						cSWindow->flush_after = true;
+					} else {
+						printStreamCommand(cmd_ustr, output);
 					}
-					u_fflush(output); // Ensure output is flushed
+					cSWindow = nullptr;
+					lSWindow = nullptr;
+					cCohort = nullptr;
+					lCohort = nullptr;
 				}
 				else if (cmd_ustr == STR_CMD_IGNORE) {
 					ignoreinput = true;
+					printStreamCommand(cmd_ustr, output);
 				}
 				else if (cmd_ustr == STR_CMD_RESUME) {
 					ignoreinput = false;
+					printStreamCommand(cmd_ustr, output);
 				}
 				else if (cmd_ustr == STR_CMD_EXIT) {
+					printStreamCommand(cmd_ustr, output);
 					goto CGCMD_EXIT_JSONL;
 				}
-				else if (u_strncmp(cmd_ustr.data(), STR_CMD_SETVAR.data(), SI32(STR_CMD_SETVAR.size())) == 0) {
-					// Parse and apply SETVAR logic if needed during input
+				else if (u_strncmp(cmd_ustr.data(), STR_CMD_SETVAR.data(), STR_CMD_SETVAR.length()) == 0) {
+					UString cmd_payload = cmd_ustr.substr(STR_CMD_SETVAR.length(), cmd_ustr.length() - STR_CMD_SETVAR.length() -1); // Remove <STREAMCMD:SETVAR: and >
+					UString::size_type equals_pos = cmd_payload.find(u'=');
+					Tag* key_tag;
+					uint32_t value_hash;
+
+					if (equals_pos != UString::npos) {
+						UString key_str = cmd_payload.substr(0, equals_pos);
+						UString value_str = cmd_payload.substr(equals_pos + 1);
+						key_tag = addTag(key_str);
+						value_hash = addTag(value_str)->hash;
+					} else {
+						key_tag = addTag(cmd_payload);
+						value_hash = grammar->tag_any;
+					}
+					variables_set[key_tag->hash] = value_hash;
+					variables_rem.erase(key_tag->hash);
+					if (std::find(variables_output.begin(), variables_output.end(), key_tag->hash) == variables_output.end()) {
+						variables_output.insert(key_tag->hash);
+					}
 				}
-				else if (u_strncmp(cmd_ustr.data(), STR_CMD_REMVAR.data(), SI32(STR_CMD_REMVAR.size())) == 0) {
-					// Parse and apply REMVAR logic if needed during input
+				else if (u_strncmp(cmd_ustr.data(), STR_CMD_REMVAR.data(), STR_CMD_REMVAR.length()) == 0) {
+					UString cmd_payload = cmd_ustr.substr(STR_CMD_REMVAR.length(), cmd_ustr.length() - STR_CMD_REMVAR.length() -1); // Remove <STREAMCMD:REMVAR: and >
+					Tag* key_tag = addTag(cmd_payload);
+					variables_set.erase(key_tag->hash);
+					variables_rem.insert(key_tag->hash);
+					if (std::find(variables_output.begin(), variables_output.end(), key_tag->hash) == variables_output.end()) {
+						variables_output.insert(key_tag->hash);
+					}
 				}
 			}
 			else {
 				u_fprintf(ux_stderr, "Warning: Empty 'cmd' value on line %u.\n", numLines);
 			}
-			continue; // Skip cohort processing for this line
+			continue;
 		}
 
-		if (ignoreinput) { // Check ignoreinput flag
-			// If ignoring input, treat the line as plain text if it has a 't' field, otherwise skip
+		if (ignoreinput) {
 			if (doc.HasMember("t")) {
 				UString t_ustr = json_to_ustring(doc["t"]);
 				if (!t_ustr.empty()) {
-					printPlainTextLine(t_ustr, output, false);
+					printPlainTextLine(t_ustr, output, true);
 				}
 			}
 			continue;
@@ -376,12 +408,9 @@ void JsonlApplicator::runGrammarOnText(std::istream& input, std::ostream& output
 		if (doc.HasMember("t") && !doc.HasMember("w")) {
 			UString t_ustr = json_to_ustring(doc["t"]);
 			if (!t_ustr.empty()) {
-				// Handle plain text line. Associate with cohort/window or log.
-				// For now, just log it, as associating requires more context.
 				if (verbosity_level > 1) {
 					u_fprintf(ux_stderr, "Info: Plain text line found in JSONL input on line %u: %S\n", numLines, t_ustr.data());
 				}
-				// If needed, append to lCohort->text or lSWindow->text based on state.
 				if (lCohort) {
 					lCohort->text += t_ustr;
 					lCohort->text += u'\n';
@@ -391,7 +420,7 @@ void JsonlApplicator::runGrammarOnText(std::istream& input, std::ostream& output
 					lSWindow->text += u'\n';
 				}
 				else {
-					printPlainTextLine(t_ustr, output, false);
+					printPlainTextLine(t_ustr, output, true);
 				}
 			}
 			else {
@@ -404,6 +433,15 @@ void JsonlApplicator::runGrammarOnText(std::istream& input, std::ostream& output
 			if (!cSWindow) {
 				cSWindow = gWindow->allocAppendSingleWindow();
 				initEmptySingleWindow(cSWindow);
+
+				// Transfer current variable state to the new window
+				cSWindow->variables_set = variables_set;
+				variables_set.clear();
+				cSWindow->variables_rem = variables_rem;
+				variables_rem.clear();
+				cSWindow->variables_output = variables_output;
+				variables_output.clear();
+
 				++numWindows;
 				lSWindow = cSWindow;
 			}
@@ -675,7 +713,7 @@ void JsonlApplicator::printCohort(Cohort* cohort, std::ostream& output, bool pro
 	json::Writer<json::StringBuffer> writer(buffer);
 	doc.Accept(writer);
 
-	u_fprintf(output, "%s\n", buffer.GetString());
+	output << buffer.GetString() << "\n";
 	output.flush();
 }
 
@@ -757,7 +795,7 @@ void JsonlApplicator::printStreamCommand(const UString& cmd, std::ostream& outpu
 	json::Writer<json::StringBuffer> writer(buffer);
 	doc.Accept(writer);
 
-	u_fprintf(output, "%s\n", buffer.GetString());
+	output << buffer.GetString() << "\n";
 }
 
 void JsonlApplicator::printPlainTextLine(const UString& line, std::ostream& output, bool add_newline) {
@@ -775,7 +813,7 @@ void JsonlApplicator::printPlainTextLine(const UString& line, std::ostream& outp
 	json::Writer<json::StringBuffer> writer(buffer);
 	doc.Accept(writer);
 
-	u_fprintf(output, "%s\n", buffer.GetString());
+	output << buffer.GetString() << "\n";
 }
 
 } // namespace CG3
