@@ -41,6 +41,10 @@ def jsonl_has_validation_errors(output_lines, validator, filename):
             continue
         try:
             instance = json.loads(line)
+            if "drs" in instance:
+                print(f"INFO: Found 'drs' key in line {i+1} of output for {filename}.", file=sys.stderr)
+                if "z" in instance and instance["z"].startswith(";"):
+                    print(f"INFO BAD: Found 'z' key starting with ';' in line {i+1} of output for {filename}.", file=sys.stderr)
             validator.validate(instance)
         except json.JSONDecodeError as e:
             print(f"ERROR: Failed to decode JSON on line {i+1} of output for {filename}: {e}", file=sys.stderr)
@@ -124,7 +128,8 @@ for input_file in input_files:
             print("       Differences:", file=sys.stderr)
             for line in diff:
                 sys.stderr.write(f"       {line}") # Write directly to preserve formatting
-            print(f"       Intermediate:{output[to_label]["out_str"].strip()}\n\n{"="*79}", file=sys.stderr)
+            intermediate_stream = output[to_label]["process"].stdout.strip()
+            print(f"       Intermediate stream:{intermediate_stream}\n\n{"="*79}", file=sys.stderr)
             overall_to_fro_errors += 1
             continue
 

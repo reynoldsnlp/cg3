@@ -3,7 +3,7 @@
   "$id": "https://edu.visl.dk/cg3-cohort.schema.json",
   "type": "object",
   "title": "CG3 JSON Line Schema",
-  "description": "Cohort ('w'), Stream command ('cmd'), or Plain text line ('z')",
+  "description": "Cohort ('w'), Stream command ('cmd'), or Plain text line ('t')",
   "oneOf": [
     {
       "required": ["w"],
@@ -37,7 +37,10 @@
         },
         "z": {
           "type": "string",
-          "description": "Text suffix (whitespace, etc.) associated with the cohort"
+          "description": "Text suffix (whitespace, etc.) associated with the cohort",
+          "not": {
+            "pattern": "^;.*"
+          }
         }
       },
       "definitions": {

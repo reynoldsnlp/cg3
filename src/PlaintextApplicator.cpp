@@ -228,7 +228,6 @@ void PlaintextApplicator::runGrammarOnText(std::istream& input, std::ostream& ou
 		cCohort->wordform = addTag(tag);
 			lCohort = cCohort;
 			numCohorts++;
-
 			cReading = initEmptyCohort(*cCohort);
 			cReading->noprint = !add_tags;
 			if (add_tags) {
