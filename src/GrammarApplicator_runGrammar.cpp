@@ -491,7 +491,7 @@ void GrammarApplicator::runGrammarOnText(std::istream& input, std::ostream& outp
 					}
 
 					if (!backSWindow) {
-						printPlainTextLine(&line[0], output); // TODO printStreamCommand ?
+						printPlainTextLine(line, output); // TODO printStreamCommand ?
 					}
 					line[0] = 0;
 					variables.clear();
@@ -635,7 +635,7 @@ void GrammarApplicator::runGrammarOnText(std::istream& input, std::ostream& outp
 
 				if (line[0]) {
 					if (lSWindow && lCohort && testStringAgainst(line, text_delimiters)) {
-						lSWindow->text_post += &line[0];
+						lSWindow->text_post += line;
 
 						for (auto iter : cCohort->readings) {
 							addTagToReading(*iter, endtag);
@@ -651,13 +651,13 @@ void GrammarApplicator::runGrammarOnText(std::istream& input, std::ostream& outp
 						did_soft_lookback = false;
 					}
 					else if (lCohort) {
-						lCohort->text += &line[0];
+						lCohort->text += line;
 					}
 					else if (lSWindow) {
-						lSWindow->text += &line[0];
+						lSWindow->text += line;
 					}
 					else if (!is_cmd) {
-						printPlainTextLine(&line[0], output, false);
+						printPlainTextLine(line, output);
 					}
 				}
 			}

@@ -323,11 +323,8 @@ void GrammarApplicator::printStreamCommand(const UString& cmd, std::ostream& out
 	u_fprintf(output, "%S\n", cmd.data());
 }
 
-void GrammarApplicator::printPlainTextLine(const UString& line, std::ostream& output, bool add_newline) {
+void GrammarApplicator::printPlainTextLine(const UString& line, std::ostream& output) {
 	u_fprintf(output, "%S", line.data());
-	if (add_newline) {
-		u_fputc('\n', output);
-	}
 }
 
 void GrammarApplicator::printTrace(std::ostream& output, uint32_t hit_by) {
@@ -491,9 +488,6 @@ void GrammarApplicator::printCohort(Cohort* cohort, std::ostream& output, bool p
 
 	if (!cohort->wblank.empty()) {
 		u_fprintf(output, "%S", cohort->wblank.data());
-		if (!ISNL(cohort->wblank.back())) {
-			u_fputc('\n', output);
-		}
 	}
 
 	if (cohort->type & CT_REMOVED) {
@@ -541,9 +535,6 @@ void GrammarApplicator::printCohort(Cohort* cohort, std::ostream& output, bool p
 removed:
 	if (!cohort->text.empty() && cohort->text.find_first_not_of(ws) != UString::npos) {
 		u_fprintf(output, "%S", cohort->text.data());
-		if (!ISNL(cohort->text.back())) {
-			u_fputc('\n', output);
-		}
 	}
 
 	if (profiling && cohort == rule_target) {
@@ -572,17 +563,7 @@ void GrammarApplicator::printSingleWindow(SingleWindow* window, std::ostream& ou
 	}
 
 	if (!window->text.empty() && window->text.find_first_not_of(ws) != UString::npos) {
-		UString line_buf;
-		for (UChar c : window->text) {
-			line_buf += c;
-			if (ISNL(c)) {
-				printPlainTextLine(line_buf, output, false);
-				line_buf.clear();
-			}
-		}
-		if (!line_buf.empty()) {
-			printPlainTextLine(line_buf, output, false);
-		}
+		printPlainTextLine(window->text, output);
 	}
 
 	for (auto& cohort : window->all_cohorts) {
@@ -590,22 +571,9 @@ void GrammarApplicator::printSingleWindow(SingleWindow* window, std::ostream& ou
 	}
 
 	if (!window->text_post.empty() && window->text_post.find_first_not_of(ws) != UString::npos) {
-		UString line_buf;
-		for (UChar c : window->text_post) {
-			line_buf += c;
-			if (ISNL(c)) {
-				printPlainTextLine(line_buf, output, false);
-				line_buf.clear();
-			}
-		}
-		if (!line_buf.empty()) {
-			printPlainTextLine(line_buf, output, false);
-		}
+		printPlainTextLine(window->text_post, output);
 	}
 
-	if (add_spacing) {
-		printPlainTextLine(UString(), output);
-	}
 	if (window->flush_after) {
 		printStreamCommand(UString(STR_CMD_FLUSH), output);
 	}

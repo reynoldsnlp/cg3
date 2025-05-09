@@ -156,10 +156,10 @@ void FormatConverter::printStreamCommand(const UString& cmd, std::ostream& outpu
 	}
 }
 
-void FormatConverter::printPlainTextLine(const UString& line, std::ostream& output, bool add_newline) {
+void FormatConverter::printPlainTextLine(const UString& line, std::ostream& output) {
 	switch (outformat) {
 	case FMT_JSONL: {
-		JsonlApplicator::printPlainTextLine(line, output, add_newline);
+		JsonlApplicator::printPlainTextLine(line, output);
 		break;
 	}
 	case FMT_CG:
@@ -168,7 +168,7 @@ void FormatConverter::printPlainTextLine(const UString& line, std::ostream& outp
 	case FMT_NICELINE:
 	case FMT_PLAIN:
 	default: {
-		GrammarApplicator::printPlainTextLine(line, output, add_newline);
+		GrammarApplicator::printPlainTextLine(line, output);
 		break;
 	}
 	}

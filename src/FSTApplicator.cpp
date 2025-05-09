@@ -287,7 +287,7 @@ void FSTApplicator::runGrammarOnText(std::istream& input, std::ostream& output) 
 					cCohort = nullptr;
 				}
 				if (cleaned[0] && line[0]) {
-					printPlainTextLine(&line[0], output, false);
+					printPlainTextLine(&line[0], output);
 				}
 				continue;
 			}
@@ -376,7 +376,7 @@ void FSTApplicator::runGrammarOnText(std::istream& input, std::ostream& output) 
 					lSWindow->text += &line[0];
 				}
 				else {
-					printPlainTextLine(&line[0], output, false);
+					printPlainTextLine(&line[0], output);
 				}
 			}
 		}

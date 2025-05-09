@@ -198,7 +198,7 @@ protected:
 	virtual void printCohort(Cohort* cohort, std::ostream& output, bool profiling = false);
 	virtual void printSingleWindow(SingleWindow* window, std::ostream& output, bool profiling = false);
 	virtual void printStreamCommand(const UString& cmd, std::ostream& output);
-	virtual void printPlainTextLine(const UString& line, std::ostream& output, bool add_newline = true);
+	virtual void printPlainTextLine(const UString& line, std::ostream& output);
 
 	void pipeOutReading(const Reading* reading, std::ostream& output);
 	void pipeOutCohort(const Cohort* cohort, std::ostream& output);

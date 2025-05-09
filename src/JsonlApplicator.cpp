@@ -5,7 +5,7 @@
 * This program is free software: you can redistribute it and/or modify
 * it under the terms of the GNU General Public License as published by
 * the Free Software Foundation, either version 3 of the License, or
-* (at your option) any later version.
+* any later version.
 *
 * This program is distributed in the hope that it will be useful,
 * but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -56,41 +56,6 @@ UString json_to_ustring(const json::Value& val) {
 		return result;
 	}
 	return UString();
-}
-
-// Helper to convert UString to UTF-8 std::string for JSON serialization
-// TODO move to uextras.hpp?
-std::string ustring_to_utf8(const UString& ustr) {
-	std::string utf8_str;
-	if (!ustr.empty()) {
-		utf8_str.reserve(ustr.length() * 4);
-	}
-	UErrorCode status = U_ZERO_ERROR;
-	int32_t required_length = 0;
-	u_strToUTF8(nullptr, 0, &required_length, ustr.data(), ustr.length(), &status);
-
-	if (status == U_BUFFER_OVERFLOW_ERROR || status == U_ZERO_ERROR) {
-		if (required_length > 0) {
-			utf8_str.resize(required_length);
-			status = U_ZERO_ERROR;
-			int32_t written_length = 0;
-
-			u_strToUTF8(&utf8_str[0], required_length, &written_length, ustr.data(), ustr.length(), &status);
-
-			if (U_FAILURE(status)) {
-				// Consider logging: u_fprintf(stderr, "ICU u_strToUTF8 conversion failed: %s\n", u_errorName(status));
-				return "";
-			}
-
-			if (written_length < required_length) {
-				utf8_str.resize(written_length);
-			}
-		}
-	}
-	else if (U_FAILURE(status)) {
-		return "";
-	}
-	return utf8_str;
 }
 
 // Helper function to parse a single reading (and its potential subreadings) from JSON
@@ -399,7 +364,7 @@ void JsonlApplicator::runGrammarOnText(std::istream& input, std::ostream& output
 			if (doc.HasMember("t")) {
 				UString t_ustr = json_to_ustring(doc["t"]);
 				if (!t_ustr.empty()) {
-					printPlainTextLine(t_ustr, output, true);
+					printPlainTextLine(t_ustr, output);
 				}
 			}
 			continue;
@@ -413,14 +378,12 @@ void JsonlApplicator::runGrammarOnText(std::istream& input, std::ostream& output
 				}
 				if (lCohort) {
 					lCohort->text += t_ustr;
-					lCohort->text += u'\n';
 				}
 				else if (lSWindow) {
 					lSWindow->text += t_ustr;
-					lSWindow->text += u'\n';
 				}
 				else {
-					printPlainTextLine(t_ustr, output, true);
+					printPlainTextLine(t_ustr, output);
 				}
 			}
 			else {
@@ -740,19 +703,7 @@ void JsonlApplicator::printSingleWindow(SingleWindow* window, std::ostream& outp
 
 	// Print pre-text
 	if (!window->text.empty()) {
-		// Split multi-line text into individual lines for printing
-		UString line_buf;
-		for (UChar c : window->text) {
-			line_buf += c;
-			if (ISNL(c)) {
-				line_buf.pop_back(); // Remove newline for JSON value
-				printPlainTextLine(line_buf, output, false);
-				line_buf.clear();
-			}
-		}
-		if (!line_buf.empty()) { // Print remaining part if no trailing newline
-			printPlainTextLine(line_buf, output, false);
-		}
+		printPlainTextLine(window->text, output);
 	}
 
 	for (auto& cohort : window->all_cohorts) {
@@ -761,19 +712,7 @@ void JsonlApplicator::printSingleWindow(SingleWindow* window, std::ostream& outp
 
 	// Print post-text
 	if (!window->text_post.empty()) {
-		// Split multi-line text into individual lines for printing
-		UString line_buf;
-		for (UChar c : window->text_post) {
-			line_buf += c;
-			if (ISNL(c)) {
-				line_buf.pop_back(); // Remove newline for JSON value
-				printPlainTextLine(line_buf, output, false);
-				line_buf.clear();
-			}
-		}
-		if (!line_buf.empty()) { // Print remaining part if no trailing newline
-			printPlainTextLine(line_buf, output, false);
-		}
+		printPlainTextLine(window->text_post, output);
 	}
 
 	// Print flush command if needed
@@ -798,9 +737,9 @@ void JsonlApplicator::printStreamCommand(const UString& cmd, std::ostream& outpu
 	output << buffer.GetString() << "\n";
 }
 
-void JsonlApplicator::printPlainTextLine(const UString& line, std::ostream& output, bool add_newline) {
-	// add_newline is ignored for JSONL, as each JSON object is one line.
-	// Ensure the input 'line' doesn't contain newlines if it represents a single logical line.
+void JsonlApplicator::printPlainTextLine(const UString& line, std::ostream& output) {
+	// Ensure the input 'line' doesn't contain newlines if it represents a single logical line,
+	// unless that newline is intended to be part of the output.
 	json::Document doc;
 	doc.SetObject();
 	json::Document::AllocatorType& allocator = doc.GetAllocator();

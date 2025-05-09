@@ -277,7 +277,7 @@ void NicelineApplicator::runGrammarOnText(std::istream& input, std::ostream& out
 					lSWindow->text += &line[0];
 				}
 				else {
-					printPlainTextLine(&line[0], output, false);
+					printPlainTextLine(&line[0], output);
 				}
 			}
 		}

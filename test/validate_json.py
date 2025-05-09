@@ -8,8 +8,8 @@ import difflib # Added import
 try:
     import jsonschema
 except ImportError:
-    print("Warning: jsonschema library not found. Skipping JSON validation.", file=sys.stderr)
-    print("Install it with: pip install jsonschema", file=sys.stderr)
+    print("Warning: jsonschema library not found. Skipping JSON validation.")
+    print("Install it with: pip install jsonschema")
     sys.exit(0)
 
 # --- Configuration ---
@@ -41,23 +41,19 @@ def jsonl_has_validation_errors(output_lines, validator, filename):
             continue
         try:
             instance = json.loads(line)
-            if "drs" in instance:
-                print(f"INFO: Found 'drs' key in line {i+1} of output for {filename}.", file=sys.stderr)
-                if "z" in instance and instance["z"].startswith(";"):
-                    print(f"INFO BAD: Found 'z' key starting with ';' in line {i+1} of output for {filename}.", file=sys.stderr)
             validator.validate(instance)
         except json.JSONDecodeError as e:
-            print(f"ERROR: Failed to decode JSON on line {i+1} of output for {filename}: {e}", file=sys.stderr)
-            print(f"       Line content: {line}", file=sys.stderr)
+            print(f"ERROR: Failed to decode JSON on line {i+1} of output for {filename}: {e}")
+            print(f"       Line content: {line}")
             has_errors = True
         except jsonschema.ValidationError as e:
-            print(f"ERROR: Schema validation failed on line {i+1} of output for {filename}:", file=sys.stderr)
-            print(f"       Error: {e.message}", file=sys.stderr)
-            print(f"       Path: {list(e.path)}", file=sys.stderr)
-            print(f"       Instance: {e.instance}", file=sys.stderr)
+            print(f"ERROR: Schema validation failed on line {i+1} of output for {filename}:")
+            print(f"       Error: {e.message}")
+            print(f"       Path: {list(e.path)}")
+            print(f"       Instance: {e.instance}")
             has_errors = True
         except Exception as e:
-            print(f"ERROR: Unexpected error validating line {i+1} for {filename}: {e}", file=sys.stderr)
+            print(f"ERROR: Unexpected error validating line {i+1} for {filename}: {e}")
             has_errors = True
     return has_errors
 
@@ -71,7 +67,7 @@ print(f"Searching for input files matching '{INPUT_GLOB_PATTERN}' in {SCRIPT_DIR
 input_files = list(SCRIPT_DIR.rglob(INPUT_GLOB_PATTERN))
 
 if not input_files:
-    print("Warning: No input.txt files found.", file=sys.stderr)
+    print("Warning: No input.txt files found.")
     sys.exit(0)
 
 print(f"Found {len(input_files)} input files.")
@@ -79,8 +75,11 @@ overall_to_fro_errors = 0
 overall_json_validation_errors = 0
 output = {}
 
+skipped_dirs = ["Apertium/"]  # TODO add T_Variables/ and T_InputCommands/
+skipped_dirs_regex = "|".join([re.escape(dir) for dir in skipped_dirs])
+print(f"Skipping directories: {skipped_dirs}")
 for input_file in input_files:
-    if re.search(r'Apertium', str(input_file)):
+    if re.search(skipped_dirs_regex, str(input_file)):
         continue
 
     with open(input_file, 'r', encoding='utf-8') as f:
@@ -116,7 +115,7 @@ for input_file in input_files:
         output[fro_label] = {"process": fro_process,
                              "out_str": strip_deps(fro_process.stdout)}
         if output["cC"]["out_str"] != output[fro_label]["out_str"]:
-            print(f"ERROR: cg-conv cC output differs from {to_label}->{fro_label} output for {input_file}", file=sys.stderr)
+            print(f"ERROR: cg-conv cC output differs from {to_label}->{fro_label} output for {input_file}")
             # Generate and print a unified diff
             diff = difflib.unified_diff(
                 output["cC"]["out_str"].splitlines(keepends=True),
@@ -125,11 +124,11 @@ for input_file in input_files:
                 tofile=f'{fro_label}_output',
                 lineterm='\n'
             )
-            print("       Differences:", file=sys.stderr)
+            print("       Differences:")
             for line in diff:
-                sys.stderr.write(f"       {line}") # Write directly to preserve formatting
+                print(f"       {line}", end="") # Write directly to preserve formatting
             intermediate_stream = output[to_label]["process"].stdout.strip()
-            print(f"       Intermediate stream:{intermediate_stream}\n\n{"="*79}", file=sys.stderr)
+            print(f"       Intermediate stream:{intermediate_stream}\n\n{"="*79}")
             overall_to_fro_errors += 1
             continue
 
