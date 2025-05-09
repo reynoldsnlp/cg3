@@ -59,21 +59,37 @@ UString json_to_ustring(const json::Value& val) {
 }
 
 // Helper to convert UString to UTF-8 std::string for JSON serialization
+// TODO move to uextras.hpp?
 std::string ustring_to_utf8(const UString& ustr) {
 	std::string utf8_str;
-	utf8_str.reserve(ustr.length() * 3); // Max 3 bytes per UChar in UTF-8
-	UErrorCode status = U_ZERO_ERROR;
-	int32_t length = 0;
-	u_strToUTF8(nullptr, 0, &length, ustr.data(), ustr.length(), &status);
-	if (status == U_BUFFER_OVERFLOW_ERROR || status == U_ZERO_ERROR) {
-		utf8_str.resize(length);
-		status = U_ZERO_ERROR;
-		u_strToUTF8(&utf8_str[0], length, nullptr, ustr.data(), ustr.length(), &status);
+	if (!ustr.empty()) {
+		utf8_str.reserve(ustr.length() * 4);
 	}
-	if (U_FAILURE(status)) {
+	UErrorCode status = U_ZERO_ERROR;
+	int32_t required_length = 0;
+	u_strToUTF8(nullptr, 0, &required_length, ustr.data(), ustr.length(), &status);
+
+	if (status == U_BUFFER_OVERFLOW_ERROR || status == U_ZERO_ERROR) {
+		if (required_length > 0) {
+			utf8_str.resize(required_length);
+			status = U_ZERO_ERROR;
+			int32_t written_length = 0;
+
+			u_strToUTF8(&utf8_str[0], required_length, &written_length, ustr.data(), ustr.length(), &status);
+
+			if (U_FAILURE(status)) {
+				// Consider logging: u_fprintf(stderr, "ICU u_strToUTF8 conversion failed: %s\n", u_errorName(status));
+				return "";
+			}
+
+			if (written_length < required_length) {
+				utf8_str.resize(written_length);
+			}
+		}
+	}
+	else if (U_FAILURE(status)) {
 		return "";
 	}
-	utf8_str.resize(strlen(utf8_str.c_str()));
 	return utf8_str;
 }
 
